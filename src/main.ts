@@ -9,6 +9,7 @@ import {
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import helmet from '@fastify/helmet';
+import compress from '@fastify/compress';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -25,8 +26,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // Security
+  // Plugins
   await app.register(helmet);
+  await app.register(compress);
 
   // Middlewares
   app.useLogger(app.get(Logger));
