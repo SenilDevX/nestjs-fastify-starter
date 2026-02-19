@@ -43,7 +43,9 @@ export class TodosService extends BaseService<TodoDocument> {
     page = 1,
     limit = 10,
   ): Promise<PaginatedResult<TodoDocument>> {
-    const cacheKey = `todos_list:p${page}:l${limit}`;
+    const version =
+      (await this.cacheManager.get<number>('todos_list:version')) ?? 0;
+    const cacheKey = `todos_list:v${version}:p${page}:l${limit}`;
 
     const cached =
       await this.cacheManager.get<PaginatedResult<TodoDocument>>(cacheKey);
@@ -55,20 +57,9 @@ export class TodosService extends BaseService<TodoDocument> {
   }
 
   private async invalidateListCache(): Promise<void> {
-    const store = this.cacheManager.stores[0];
-    if (!store.iterator) return;
-
-    const keysToDelete: string[] = [];
-
-    for await (const [key] of store.iterator(undefined)) {
-      if (typeof key === 'string' && key.startsWith('todos_list:')) {
-        keysToDelete.push(key);
-      }
-    }
-
-    if (keysToDelete.length > 0) {
-      await this.cacheManager.mdel(keysToDelete);
-    }
+    const current =
+      (await this.cacheManager.get<number>('todos_list:version')) ?? 0;
+    await this.cacheManager.set('todos_list:version', current + 1);
   }
 
   async findOne(id: string): Promise<TodoDocument> {
