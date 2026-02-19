@@ -36,9 +36,18 @@ export abstract class BaseService<T extends Document> {
     await cache.set(`${prefix}_list:version`, current + 1);
   }
 
+  protected afterCreate(_doc: T): void | Promise<void> {}
+  protected afterUpdate(
+    _id: string,
+    _dto: UpdateQuery<T>,
+    _doc: T,
+  ): void | Promise<void> {}
+  protected afterRemove(_id: string): void | Promise<void> {}
+
   async create(dto: Partial<T>): Promise<T> {
     const doc = await this.model.create(dto);
     await this.invalidateListCache();
+    await this.afterCreate(doc);
     return doc;
   }
 
@@ -126,6 +135,7 @@ export abstract class BaseService<T extends Document> {
       await this.invalidateListCache();
     }
 
+    await this.afterUpdate(id, dto, doc);
     return doc;
   }
 
@@ -140,5 +150,7 @@ export abstract class BaseService<T extends Document> {
       await this.deleteCache(`${this.cacheConfig.prefix}_${id}`);
       await this.invalidateListCache();
     }
+
+    await this.afterRemove(id);
   }
 }
