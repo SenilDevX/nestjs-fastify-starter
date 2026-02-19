@@ -20,8 +20,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      const response = exception.getResponse() as any;
-      message = response.message || exception.message;
+      const response = exception.getResponse();
+      message =
+        typeof response === 'object' &&
+        response !== null &&
+        'message' in response
+          ? (response as { message: string | string[] }).message
+          : exception.message;
     } else {
       // Unexpected error — logging it, not sending to client
       this.logger.error(exception);

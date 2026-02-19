@@ -10,11 +10,11 @@ import { NotificationsProcessor } from './notifications.processor';
       name: 'notifications',
       defaultJobOptions: {
         attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 }
+        backoff: { type: 'exponential', delay: 1000 },
       },
     }),
   ],
   providers: [NotificationsService, NotificationsProcessor],
-  exports: [NotificationsService]
+  exports: [NotificationsService],
 })
 export class NotificationsModule {}

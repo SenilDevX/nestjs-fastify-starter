@@ -8,7 +8,7 @@ export class ResponseInterceptor implements NestInterceptor {
     next: CallHandler,
   ): Observable<{ success: boolean; data: unknown }> {
     return next.handle().pipe(
-      map((data) => ({
+      map((data: unknown) => ({
         success: true,
         data,
       })),

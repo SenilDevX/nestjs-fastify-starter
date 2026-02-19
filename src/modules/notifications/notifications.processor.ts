@@ -3,15 +3,20 @@ import { Job } from 'bullmq';
 import { Logger } from 'nestjs-pino';
 import { TodoEvent } from '../todos/todos.events';
 
+interface NotificationJobData {
+  todoId: string;
+  title: string;
+}
+
 @Processor('notifications')
 export class NotificationsProcessor extends WorkerHost {
   constructor(private readonly logger: Logger) {
     super();
   }
 
-  async process(job: Job) {
+  process(job: Job<NotificationJobData, unknown, string>) {
     try {
-      switch (job.name) {
+      switch (job.name as TodoEvent) {
         case TodoEvent.CREATED:
           this.logger.log(
             { todoId: job.data.todoId, title: job.data.title },
@@ -33,13 +38,15 @@ export class NotificationsProcessor extends WorkerHost {
             NotificationsProcessor.name,
           );
       }
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(
-        { jobId: job.id, jobName: job.name, error },
+        { jobId: job.id, jobName: job.name, error: String(error) },
         'Notification job failed',
         NotificationsProcessor.name,
       );
-      throw error; // rethrow so queue can retry
+      throw error;
     }
+
+    return Promise.resolve();
   }
 }

@@ -53,28 +53,13 @@ import { HealthModule } from './modules/health/health.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
-        connectionFactory: (connection) => {
-          connection.on('open', () => console.log('MongoDB connected'));
-          if (process.env.NODE_ENV !== 'production') {
-            connection.set(
-              'debug',
-              (collectionName: string, method: string, query: any) => {
-                console.log(
-                  `MongoDB: ${collectionName}.${method}`,
-                  JSON.stringify(query),
-                );
-              },
-            );
-          }
-          return connection;
-        },
       }),
       inject: [ConfigService],
     }),
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         storage: redisStore,
         url: configService.get<string>('REDIS_URL'),
         ttl: 60 * 1000, // 60 seconds
@@ -83,7 +68,7 @@ import { HealthModule } from './modules/health/health.module';
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         connection: {
           url: configService.get<string>('REDIS_URL'),
         },
