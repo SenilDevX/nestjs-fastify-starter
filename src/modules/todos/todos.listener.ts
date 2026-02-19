@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
-import { TodoCompletedEvent, TodoCreatedEvent, TodoEvent } from '../../events/todo.events';
+import {
+  TodoCompletedEvent,
+  TodoCreatedEvent,
+  TodoEvent,
+} from './todos.events.js';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()

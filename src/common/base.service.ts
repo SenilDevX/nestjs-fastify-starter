@@ -18,13 +18,17 @@ export abstract class BaseService<T extends Document> {
     const skip = (safePage - 1) * limit;
     const baseFilter = { ...filter, isDeleted: false };
 
-    const [data, total] = await Promise.all([
-      this.model.find(baseFilter).skip(skip).limit(limit),
+    const [items, total] = await Promise.all([
+      this.model
+        .find(baseFilter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
       this.model.countDocuments(baseFilter),
     ]);
 
     return {
-      items: data,
+      items,
       total,
       page: safePage,
       limit,

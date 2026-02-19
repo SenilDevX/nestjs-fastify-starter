@@ -27,6 +27,7 @@ import { HealthModule } from './modules/health/health.module';
         PORT: Joi.number().default(3000),
         MONGODB_URI: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
+        CORS_ORIGIN: Joi.string().default('*'),
       }),
     }),
     LoggerModule.forRoot({

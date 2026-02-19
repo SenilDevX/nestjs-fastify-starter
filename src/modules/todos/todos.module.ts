@@ -4,7 +4,7 @@ import { TodosService } from './todos.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Todo, TodoSchema } from './todos.schema';
 import { TodosListener } from './todos.listener';
-import { TodosJob } from 'src/modules/todos/todos.job';
+import { TodosJob } from './todos.job';
 
 @Module({
   imports: [

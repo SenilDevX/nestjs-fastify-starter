@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Logger } from 'nestjs-pino';
-import { TodoEvent } from 'src/events/todo.events';
+import { TodoEvent } from '../todos/todos.events';
 
 @Processor('notifications')
 export class NotificationsProcessor extends WorkerHost {

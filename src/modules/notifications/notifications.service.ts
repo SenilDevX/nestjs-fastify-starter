@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { TodoEvent } from 'src/events/todo.events';
+import { TodoEvent } from '../todos/todos.events.js';
 
 @Injectable()
 export class NotificationsService {

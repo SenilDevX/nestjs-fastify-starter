@@ -7,9 +7,13 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TodoCompletedEvent, TodoCreatedEvent, TodoEvent } from 'src/events/todo.events';
-import { BaseService } from 'src/common/base.service';
-import { PaginatedResult } from 'src/common/types';
+import {
+  TodoCompletedEvent,
+  TodoCreatedEvent,
+  TodoEvent,
+} from './todos.events.js';
+import { BaseService } from '../../common/base.service.js';
+import { PaginatedResult } from '../../common/types/index.js';
 
 @Injectable()
 export class TodosService extends BaseService<TodoDocument> {
@@ -18,7 +22,7 @@ export class TodosService extends BaseService<TodoDocument> {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private eventEmitter: EventEmitter2,
   ) {
-    super(todoModel)
+    super(todoModel);
   }
 
   async create(dto: CreateTodoDto): Promise<TodoDocument> {
@@ -41,7 +45,8 @@ export class TodosService extends BaseService<TodoDocument> {
   ): Promise<PaginatedResult<TodoDocument>> {
     const cacheKey = `todos_list:p${page}:l${limit}`;
 
-    const cached = await this.cacheManager.get<PaginatedResult<TodoDocument>>(cacheKey);
+    const cached =
+      await this.cacheManager.get<PaginatedResult<TodoDocument>>(cacheKey);
     if (cached) return cached;
 
     const result = await super.findAll(filter, page, limit);

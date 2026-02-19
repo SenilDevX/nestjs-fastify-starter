@@ -44,7 +44,10 @@ export class TodosController {
   // To override the rate limit for a single route:
   // @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Patch(':id')
-  update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateTodoDto) {
+  update(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: UpdateTodoDto,
+  ) {
     return this.todosService.update(id, dto);
   }
 

@@ -23,6 +23,8 @@ async function bootstrap() {
     { bufferLogs: true },
   );
 
+  const configService = app.get(ConfigService);
+
   // Security
   await app.register(helmet);
 
@@ -39,8 +41,9 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS
+  const corsOrigin = configService.get<string>('CORS_ORIGIN', '*');
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' ? false : '*', // in production, we'll specify allowed origins
+    origin: process.env.NODE_ENV === 'production' ? corsOrigin.split(',') : '*',
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
@@ -62,7 +65,7 @@ async function bootstrap() {
 
   app.enableShutdownHooks();
 
-  const port = app.get(ConfigService).get<number>('PORT', 3000);
+  const port = configService.get<number>('PORT', 3000);
   await app.listen(port, '0.0.0.0');
 }
 bootstrap();
