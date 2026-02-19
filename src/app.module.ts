@@ -42,7 +42,7 @@ import { HealthModule } from './modules/health/health.module';
                   translateTime: 'SYS:HH:MM:ss',
                   ignore: 'pid,hostname',
                   messageFormat: '[{context}] {msg}',
-                  singleLine: false,
+                  singleLine: true,
                 },
               }
             : undefined,
