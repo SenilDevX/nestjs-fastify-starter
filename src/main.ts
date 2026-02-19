@@ -12,7 +12,7 @@ import helmet from '@fastify/helmet';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 const TEN_MB = 10 * 1024 * 1024;
 
@@ -36,7 +36,7 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new ResponseInterceptor());
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS
   app.enableCors({
@@ -59,6 +59,8 @@ async function bootstrap() {
       withFastify: true,
     }),
   );
+
+  app.enableShutdownHooks();
 
   const port = app.get(ConfigService).get<number>('PORT', 3000);
   await app.listen(port, '0.0.0.0');
