@@ -5,7 +5,7 @@ export class CreateTodoDto {
   @ApiProperty({ example: 'Buy groceries' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @ApiProperty({ example: 'From the supermarket', required: false })
   @IsString()

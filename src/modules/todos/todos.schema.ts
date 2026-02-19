@@ -14,16 +14,16 @@ export enum TodoStatus {
 })
 export class Todo {
   @Prop({ required: true })
-  title: string;
+  title!: string;
 
   @Prop()
-  description: string;
+  description!: string;
 
   @Prop({ enum: TodoStatus, default: TodoStatus.PENDING })
-  status: TodoStatus;
+  status!: TodoStatus;
 
   @Prop({ default: false })
-  isDeleted: boolean;
+  isDeleted!: boolean;
 }
 
 export const TodoSchema = SchemaFactory.createForClass(Todo);
