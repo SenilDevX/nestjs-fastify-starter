@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { TodoEvent } from 'src/events/todo.events';
 
 @Injectable()
 export class NotificationsService {
@@ -9,10 +10,10 @@ export class NotificationsService {
   ) {}
 
   async sendTodoCreated(todoId: string, title: string) {
-    await this.notificationsQueue.add('todo.created', { todoId, title });
+    await this.notificationsQueue.add(TodoEvent.CREATED, { todoId, title });
   }
 
   async sendTodoCompleted(todoId: string, title: string) {
-    await this.notificationsQueue.add('todo.completed', { todoId, title });
+    await this.notificationsQueue.add(TodoEvent.COMPLETED, { todoId, title });
   }
 }

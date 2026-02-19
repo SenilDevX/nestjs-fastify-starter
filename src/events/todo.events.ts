@@ -1,3 +1,8 @@
+export enum TodoEvent {
+  CREATED = 'todo.created',
+  COMPLETED = 'todo.completed',
+}
+
 export class TodoCreatedEvent {
   constructor(
     public readonly todoId: string,

@@ -7,7 +7,7 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TodoCompletedEvent, TodoCreatedEvent } from 'src/events/todo.events';
+import { TodoCompletedEvent, TodoCreatedEvent, TodoEvent } from 'src/events/todo.events';
 import { BaseService } from 'src/common/base.service';
 import { PaginatedResult } from 'src/common/types';
 
@@ -27,7 +27,7 @@ export class TodosService extends BaseService<TodoDocument> {
 
     // Create event
     this.eventEmitter.emit(
-      'todo.created',
+      TodoEvent.CREATED,
       new TodoCreatedEvent(todo._id.toString(), todo.title),
     );
 
@@ -86,7 +86,7 @@ export class TodosService extends BaseService<TodoDocument> {
     // Complete event
     if (dto.status === TodoStatus.COMPLETED) {
       this.eventEmitter.emit(
-        'todo.completed',
+        TodoEvent.COMPLETED,
         new TodoCompletedEvent(todo._id.toString(), todo.title),
       );
     }
