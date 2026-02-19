@@ -8,6 +8,10 @@ import { NotificationsProcessor } from './notifications.processor';
   imports: [
     BullModule.registerQueue({
       name: 'notifications',
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 }
+      },
     }),
   ],
   providers: [NotificationsService, NotificationsProcessor],
