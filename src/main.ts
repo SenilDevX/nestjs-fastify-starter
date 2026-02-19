@@ -32,6 +32,13 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  // CORS
+  app.enableCors({
+    origin: process.env.NODE_ENV === 'production' ? false : '*',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
   // Set up api docs
   const config = new DocumentBuilder()
     .setTitle('GPMS Todo API')
