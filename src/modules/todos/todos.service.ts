@@ -1,6 +1,6 @@
 import { InjectModel } from '@nestjs/mongoose';
 import { Todo, TodoDocument, TodoStatus } from './todos.schema';
-import { Model, QueryFilter } from 'mongoose';
+import { Model } from 'mongoose';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { Inject, Injectable } from '@nestjs/common';
 import { UpdateTodoDto } from './dto/update-todo.dto';
@@ -13,7 +13,6 @@ import {
   TodoEvent,
 } from './todos.events.js';
 import { BaseService } from '../../common/base.service.js';
-import { PaginatedResult } from '../../common/types/index.js';
 
 @Injectable()
 export class TodosService extends BaseService<TodoDocument> {
@@ -22,14 +21,12 @@ export class TodosService extends BaseService<TodoDocument> {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private eventEmitter: EventEmitter2,
   ) {
-    super(todoModel);
+    super(todoModel, { cache: cacheManager, prefix: 'todos' });
   }
 
   async create(dto: CreateTodoDto): Promise<TodoDocument> {
     const todo = await super.create(dto);
-    await this.invalidateListCache();
 
-    // Create event
     this.eventEmitter.emit(
       TodoEvent.CREATED,
       new TodoCreatedEvent(todo._id.toString(), todo.title),
@@ -38,48 +35,9 @@ export class TodosService extends BaseService<TodoDocument> {
     return todo;
   }
 
-  async findAll(
-    filter: QueryFilter<TodoDocument> = {},
-    page = 1,
-    limit = 10,
-  ): Promise<PaginatedResult<TodoDocument>> {
-    const version =
-      (await this.cacheManager.get<number>('todos_list:version')) ?? 0;
-    const cacheKey = `todos_list:v${version}:p${page}:l${limit}`;
-
-    const cached =
-      await this.cacheManager.get<PaginatedResult<TodoDocument>>(cacheKey);
-    if (cached) return cached;
-
-    const result = await super.findAll(filter, page, limit);
-    await this.cacheManager.set(cacheKey, result);
-    return result;
-  }
-
-  private async invalidateListCache(): Promise<void> {
-    const current =
-      (await this.cacheManager.get<number>('todos_list:version')) ?? 0;
-    await this.cacheManager.set('todos_list:version', current + 1);
-  }
-
-  async findOne(id: string): Promise<TodoDocument> {
-    const cached = await this.cacheManager.get<TodoDocument>(`todo_${id}`);
-    if (cached) return cached;
-
-    const todo = await super.findOne(id);
-
-    await this.cacheManager.set(`todo_${id}`, todo);
-    return todo;
-  }
-
   async update(id: string, dto: UpdateTodoDto): Promise<TodoDocument> {
     const todo = await super.update(id, dto);
 
-    // Invalidate caches
-    await this.cacheManager.del(`todo_${id}`);
-    await this.invalidateListCache();
-
-    // Complete event
     if (dto.status === TodoStatus.COMPLETED) {
       this.eventEmitter.emit(
         TodoEvent.COMPLETED,
@@ -88,11 +46,5 @@ export class TodosService extends BaseService<TodoDocument> {
     }
 
     return todo;
-  }
-
-  async remove(id: string): Promise<void> {
-    await super.remove(id);
-    await this.cacheManager.del(`todo_${id}`);
-    await this.invalidateListCache();
   }
 }

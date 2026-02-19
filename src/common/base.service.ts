@@ -1,12 +1,45 @@
 import { NotFoundException } from '@nestjs/common';
 import { Model, Document, UpdateQuery, QueryFilter } from 'mongoose';
+import type { Cache } from 'cache-manager';
 import { PaginatedResult } from './types';
 
+interface CacheConfig {
+  cache: Cache;
+  prefix: string;
+}
+
 export abstract class BaseService<T extends Document> {
-  constructor(protected readonly model: Model<T>) {}
+  constructor(
+    protected readonly model: Model<T>,
+    private readonly cacheConfig?: CacheConfig,
+  ) {}
+
+  private async getFromCache<R>(key: string): Promise<R | undefined> {
+    if (!this.cacheConfig) return undefined;
+    return this.cacheConfig.cache.get<R>(key);
+  }
+
+  private async setCache(key: string, value: unknown): Promise<void> {
+    if (!this.cacheConfig) return;
+    await this.cacheConfig.cache.set(key, value);
+  }
+
+  private async deleteCache(key: string): Promise<void> {
+    if (!this.cacheConfig) return;
+    await this.cacheConfig.cache.del(key);
+  }
+
+  private async invalidateListCache(): Promise<void> {
+    if (!this.cacheConfig) return;
+    const { cache, prefix } = this.cacheConfig;
+    const current = (await cache.get<number>(`${prefix}_list:version`)) ?? 0;
+    await cache.set(`${prefix}_list:version`, current + 1);
+  }
 
   async create(dto: Partial<T>): Promise<T> {
-    return this.model.create(dto);
+    const doc = await this.model.create(dto);
+    await this.invalidateListCache();
+    return doc;
   }
 
   async findAll(
@@ -18,6 +51,29 @@ export abstract class BaseService<T extends Document> {
     const skip = (safePage - 1) * limit;
     const baseFilter = { ...filter, isDeleted: false };
 
+    if (this.cacheConfig) {
+      const { prefix } = this.cacheConfig;
+      const version =
+        (await this.getFromCache<number>(`${prefix}_list:version`)) ?? 0;
+      const cacheKey = `${prefix}_list:v${version}:p${safePage}:l${limit}`;
+
+      const cached = await this.getFromCache<PaginatedResult<T>>(cacheKey);
+      if (cached) return cached;
+
+      const result = await this.queryFindAll(baseFilter, skip, limit, safePage);
+      await this.setCache(cacheKey, result);
+      return result;
+    }
+
+    return this.queryFindAll(baseFilter, skip, limit, safePage);
+  }
+
+  private async queryFindAll(
+    baseFilter: QueryFilter<T>,
+    skip: number,
+    limit: number,
+    page: number,
+  ): Promise<PaginatedResult<T>> {
     const [items, total] = await Promise.all([
       this.model
         .find(baseFilter)
@@ -30,18 +86,30 @@ export abstract class BaseService<T extends Document> {
     return {
       items,
       total,
-      page: safePage,
+      page,
       limit,
       totalPages: Math.ceil(total / limit),
     };
   }
 
   async findOne(id: string): Promise<T> {
+    if (this.cacheConfig) {
+      const cached = await this.getFromCache<T>(
+        `${this.cacheConfig.prefix}_${id}`,
+      );
+      if (cached) return cached;
+    }
+
     const doc = await this.model.findOne({
       _id: id,
       isDeleted: false,
     } as QueryFilter<T>);
     if (!doc) throw new NotFoundException('Record not found');
+
+    if (this.cacheConfig) {
+      await this.setCache(`${this.cacheConfig.prefix}_${id}`, doc);
+    }
+
     return doc;
   }
 
@@ -52,6 +120,12 @@ export abstract class BaseService<T extends Document> {
       { new: true },
     );
     if (!doc) throw new NotFoundException('Record not found');
+
+    if (this.cacheConfig) {
+      await this.deleteCache(`${this.cacheConfig.prefix}_${id}`);
+      await this.invalidateListCache();
+    }
+
     return doc;
   }
 
@@ -61,5 +135,10 @@ export abstract class BaseService<T extends Document> {
       { isDeleted: true } as UpdateQuery<T>,
     );
     if (!doc) throw new NotFoundException('Record not found');
+
+    if (this.cacheConfig) {
+      await this.deleteCache(`${this.cacheConfig.prefix}_${id}`);
+      await this.invalidateListCache();
+    }
   }
 }
