@@ -7,22 +7,42 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BullModule } from '@nestjs/bullmq';
+import * as Joi from 'joi';
 
 import { TodosModule } from './modules/todos/todos.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
+      validationSchema: Joi.object({
+        NODE_ENV: Joi.string()
+          .valid('development', 'production', 'test')
+          .default('development'),
+        PORT: Joi.number().default(3000),
+        MONGODB_URI: Joi.string().required(),
+        REDIS_URL: Joi.string().required(),
+      }),
     }),
     LoggerModule.forRoot({
       pinoHttp: {
-        redact: ['req.headers.cookie'],
+        level: process.env.NODE_ENV === 'production' ? 'warn' : 'debug',
+        redact: ['req.headers.cookie', 'req.headers.authorization'],
         transport:
           process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty', options: { singleLine: true } }
+            ? {
+                target: 'pino-pretty',
+                options: {
+                  colorize: true,
+                  translateTime: 'SYS:HH:MM:ss',
+                  ignore: 'pid,hostname',
+                  messageFormat: '[{context}] {msg}',
+                  singleLine: false,
+                },
+              }
             : undefined,
       },
     }),
@@ -32,15 +52,17 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
         uri: configService.get<string>('MONGODB_URI'),
         connectionFactory: (connection) => {
           connection.on('open', () => console.log('MongoDB connected'));
-          connection.set(
-            'debug',
-            (collectionName: string, method: string, query: any) => {
-              console.log(
-                `MongoDB: ${collectionName}.${method}`,
-                JSON.stringify(query),
-              );
-            },
-          );
+          if (process.env.NODE_ENV !== 'production') {
+            connection.set(
+              'debug',
+              (collectionName: string, method: string, query: any) => {
+                console.log(
+                  `MongoDB: ${collectionName}.${method}`,
+                  JSON.stringify(query),
+                );
+              },
+            );
+          }
           return connection;
         },
       }),
@@ -69,6 +91,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ScheduleModule.forRoot(),
     NotificationsModule,
     TodosModule,
+    HealthModule,
   ],
   providers: [],
 })
