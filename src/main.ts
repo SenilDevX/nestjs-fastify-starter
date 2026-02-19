@@ -8,19 +8,25 @@ import {
 } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
+import helmet from '@fastify/helmet';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
+const TEN_MB = 10 * 1024 * 1024;
+
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({ bodyLimit: TEN_MB }),
     { bufferLogs: true },
   );
 
-  // middlewares
+  // Security
+  await app.register(helmet);
+
+  // Middlewares
   app.useLogger(app.get(Logger));
   app.useGlobalPipes(
     new ValidationPipe({
@@ -34,12 +40,12 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' ? false : '*',
+    origin: process.env.NODE_ENV === 'production' ? false : '*', // in production, we'll specify allowed origins
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Set up api docs
+  // API docs
   const config = new DocumentBuilder()
     .setTitle('GPMS Todo API')
     .setDescription('Learning sandbox for GPMS backend patterns')

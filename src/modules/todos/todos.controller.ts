@@ -14,6 +14,12 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 
+// To override the rate limit for the entire controller:
+// @Throttle({ default: { limit: 10, ttl: 60_000 } })
+
+// To skip throttling for the entire controller:
+// @SkipThrottle()
+
 @ApiTags('Todos')
 @Controller('todos')
 export class TodosController {
@@ -34,6 +40,8 @@ export class TodosController {
     return this.todosService.findOne(id);
   }
 
+  // To override the rate limit for a single route:
+  // @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateTodoDto) {
     return this.todosService.update(id, dto);

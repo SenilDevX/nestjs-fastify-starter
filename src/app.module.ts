@@ -7,6 +7,8 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-redis-yet';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import * as Joi from 'joi';
 
 import { TodosModule } from './modules/todos/todos.module';
@@ -87,12 +89,25 @@ import { HealthModule } from './modules/health/health.module';
       }),
       inject: [ConfigService],
     }),
+    // TODO: Instead of ip based throttling (defaults to ip based), we'll have user based (once we have auth)
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000, // 1 minute window
+        limit: 100, // 100 requests per window per IP
+      },
+    ]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     NotificationsModule,
     TodosModule,
     HealthModule,
   ],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
