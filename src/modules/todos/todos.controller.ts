@@ -13,6 +13,7 @@ import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { ParseObjectIdPipe } from 'src/common/pipes/parse-object-id.pipe';
 
 // To override the rate limit for the entire controller:
 // @Throttle({ default: { limit: 10, ttl: 60_000 } })
@@ -36,19 +37,19 @@ export class TodosController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.todosService.findOne(id);
   }
 
   // To override the rate limit for a single route:
   // @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateTodoDto) {
+  update(@Param('id', ParseObjectIdPipe) id: string, @Body() dto: UpdateTodoDto) {
     return this.todosService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.todosService.remove(id);
   }
 }
