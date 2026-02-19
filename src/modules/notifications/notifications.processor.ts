@@ -1,24 +1,36 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import { Logger } from 'nestjs-pino';
 import { TodoEvent } from 'src/events/todo.events';
 
 @Processor('notifications')
 export class NotificationsProcessor extends WorkerHost {
+  constructor(private readonly logger: Logger) {
+    super();
+  }
+
   async process(job: Job) {
     switch (job.name) {
       case TodoEvent.CREATED:
-        // send actual notification to user
-        console.log(
-          `[Queue] Sending created notification for todo: ${job.data.title}`,
+        this.logger.log(
+          { todoId: job.data.todoId, title: job.data.title },
+          'Sending created notification',
+          NotificationsProcessor.name,
         );
         break;
       case TodoEvent.COMPLETED:
-        console.log(
-          `[Queue] Sending completed notification for todo: ${job.data.title}`,
+        this.logger.log(
+          { todoId: job.data.todoId, title: job.data.title },
+          'Sending completed notification',
+          NotificationsProcessor.name,
         );
         break;
       default:
-        console.log(`[Queue] Unknown job: ${job.name}`);
+        this.logger.warn(
+          { jobName: job.name },
+          'Unknown notification job',
+          NotificationsProcessor.name,
+        );
     }
   }
 }
