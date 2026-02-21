@@ -24,4 +24,15 @@ export class UsersService {
       password: hashedPassword,
     });
   }
+
+  async updateById(
+    id: string,
+    update: Partial<User>,
+  ): Promise<UserDocument | null> {
+    return this.userModel.findOneAndUpdate(
+      { _id: id, isDeleted: false },
+      update,
+      { new: true },
+    );
+  }
 }

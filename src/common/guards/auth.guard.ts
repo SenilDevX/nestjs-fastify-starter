@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { FastifyRequest } from 'fastify';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { ALLOW_PRE_TWO_FACTOR_KEY } from '../decorators/pre-two-factor.decorator';
 import { JwtPayload } from '../types';
 
 @Injectable()
@@ -39,10 +40,22 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
+    // Block pre-2FA temp tokens from accessing regular routes
+    const payload = (request as FastifyRequest & { user: JwtPayload }).user;
+    if (payload.twoFactorVerified === false) {
+      const allowPreTwoFactor = this.reflector.getAllAndOverride<boolean>(
+        ALLOW_PRE_TWO_FACTOR_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+      if (!allowPreTwoFactor) {
+        throw new UnauthorizedException('Two-factor authentication required');
+      }
+    }
+
     // NOTE: Access tokens remain valid until expiry (15 min) even after logout.
     // This is the standard JWT tradeoff — same as Better Auth, Lucia, etc.
     // The frontend clears tokens on logout, so users are effectively logged out instantly.
-    // To close this gap, add a Redis check here (e.g., token blacklist or session lookup),
+    // To close this gap, can add a Redis check here (e.g., token blacklist or session lookup),
     // but that adds a Redis round-trip to every authenticated request.
 
     return true;

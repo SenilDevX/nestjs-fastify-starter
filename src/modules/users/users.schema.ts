@@ -15,6 +15,15 @@ export class User {
   password!: string;
 
   @Prop({ default: false })
+  isTwoFactorEnabled!: boolean;
+
+  @Prop({ type: String, default: null })
+  twoFactorSecret!: string | null;
+
+  @Prop({ type: String, default: null })
+  twoFactorTempSecret!: string | null;
+
+  @Prop({ default: false })
   isDeleted!: boolean;
 }
 

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -10,6 +11,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import { generateSecret, generateURI, verify as verifyOtp } from 'otplib';
+import * as QRCode from 'qrcode';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -17,8 +20,11 @@ import { JwtPayload } from '../../common/types';
 
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_TTL = '15m';
+const TEMP_TOKEN_TTL = '5m';
 const REFRESH_TOKEN_TTL = '7d';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const APP_NAME = 'GPMS Todo';
+const OTP_WINDOW = 30;
 
 @Injectable()
 export class AuthService {
@@ -49,6 +55,22 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.isTwoFactorEnabled) {
+      const tempToken = await this.jwtService.signAsync(
+        {
+          sub: user._id.toString(),
+          email: user.email,
+          twoFactorVerified: false,
+        } as JwtPayload,
+        {
+          secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+          expiresIn: TEMP_TOKEN_TTL,
+        },
+      );
+
+      return { requiresTwoFactor: true, tempToken };
     }
 
     return this.generateTokenPair(user._id.toString(), user.email);
@@ -113,15 +135,121 @@ export class AuthService {
     return {
       id: user._id.toString(),
       email: user.email,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
       createdAt: (user as unknown as { createdAt: Date }).createdAt,
     };
+  }
+
+  async setupTwoFactor(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    if (user.isTwoFactorEnabled) {
+      throw new BadRequestException(
+        'Two-factor authentication is already enabled',
+      );
+    }
+
+    const secret = generateSecret();
+    const otpauthUri = generateURI({
+      issuer: APP_NAME,
+      label: user.email,
+      secret,
+    });
+    const qrCodeUrl = await QRCode.toDataURL(otpauthUri);
+
+    await this.usersService.updateById(userId, { twoFactorTempSecret: secret });
+
+    return { qrCodeUrl, secret };
+  }
+
+  async confirmTwoFactor(userId: string, token: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    if (user.isTwoFactorEnabled) {
+      throw new BadRequestException(
+        'Two-factor authentication is already enabled',
+      );
+    }
+    if (!user.twoFactorTempSecret) {
+      throw new BadRequestException('Call /auth/2fa/setup first');
+    }
+
+    const result = await verifyOtp({
+      token,
+      secret: user.twoFactorTempSecret,
+      epochTolerance: OTP_WINDOW,
+    });
+    if (!result.valid) {
+      throw new UnauthorizedException('Invalid authentication code');
+    }
+
+    await this.usersService.updateById(userId, {
+      isTwoFactorEnabled: true,
+      twoFactorSecret: user.twoFactorTempSecret,
+      twoFactorTempSecret: null,
+    });
+
+    return { message: 'Two-factor authentication enabled' };
+  }
+
+  async authenticateTwoFactor(userId: string, token: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    const result = await verifyOtp({
+      token,
+      secret: user.twoFactorSecret,
+      epochTolerance: OTP_WINDOW,
+    });
+    if (!result.valid) {
+      throw new UnauthorizedException('Invalid authentication code');
+    }
+
+    return this.generateTokenPair(user._id.toString(), user.email);
+  }
+
+  async disableTwoFactor(userId: string, password: string, token: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+    if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    const result = await verifyOtp({
+      token,
+      secret: user.twoFactorSecret,
+      epochTolerance: OTP_WINDOW,
+    });
+    if (!result.valid) {
+      throw new UnauthorizedException('Invalid authentication code');
+    }
+
+    await this.usersService.updateById(userId, {
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorTempSecret: null,
+    });
+
+    return { message: 'Two-factor authentication disabled' };
   }
 
   private async generateTokenPair(userId: string, email: string) {
     const tokenId = randomUUID();
     const version = await this.getRefreshTokenVersion(userId);
 
-    const accessPayload: JwtPayload = { sub: userId, email };
+    const accessPayload: JwtPayload = {
+      sub: userId,
+      email,
+      twoFactorVerified: true,
+    };
     const refreshPayload = { sub: userId, tokenId, version };
 
     const [accessToken, refreshToken] = await Promise.all([

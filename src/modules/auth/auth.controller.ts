@@ -12,8 +12,11 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AllowPreTwoFactor } from '../../common/decorators/pre-two-factor.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -61,5 +64,46 @@ export class AuthController {
   @Get('me')
   getProfile(@CurrentUser('sub') userId: string) {
     return this.authService.getProfile(userId);
+  }
+
+  @ApiBearerAuth()
+  @Post('2fa/setup')
+  @HttpCode(HttpStatus.OK)
+  setupTwoFactor(@CurrentUser('sub') userId: string) {
+    return this.authService.setupTwoFactor(userId);
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('2fa/confirm')
+  @HttpCode(HttpStatus.OK)
+  confirmTwoFactor(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyOtpDto,
+  ) {
+    return this.authService.confirmTwoFactor(userId, dto.token);
+  }
+
+  @AllowPreTwoFactor()
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('2fa/authenticate')
+  @HttpCode(HttpStatus.OK)
+  authenticateTwoFactor(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: VerifyOtpDto,
+  ) {
+    return this.authService.authenticateTwoFactor(userId, dto.token);
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.OK)
+  disableTwoFactor(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: DisableTwoFactorDto,
+  ) {
+    return this.authService.disableTwoFactor(userId, dto.password, dto.token);
   }
 }
