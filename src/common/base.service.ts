@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Model, Document, UpdateQuery, QueryFilter } from 'mongoose';
+import { createHash } from 'crypto';
 import type { Cache } from 'cache-manager';
 import { PaginatedResult } from './types';
 
@@ -64,7 +65,11 @@ export abstract class BaseService<T extends Document> {
       const { prefix } = this.cacheConfig;
       const version =
         (await this.getFromCache<number>(`${prefix}_list:version`)) ?? 0;
-      const cacheKey = `${prefix}_list:v${version}:p${safePage}:l${limit}`;
+      const filterHash = createHash('md5')
+        .update(JSON.stringify(filter))
+        .digest('hex')
+        .slice(0, 8);
+      const cacheKey = `${prefix}_list:v${version}:f${filterHash}:p${safePage}:l${limit}`;
 
       const cached = await this.getFromCache<PaginatedResult<T>>(cacheKey);
       if (cached) return cached;

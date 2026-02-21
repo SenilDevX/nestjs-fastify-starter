@@ -7,7 +7,9 @@ import {
 } from '@nestjs/terminus';
 import { RedisHealthIndicator } from './redis-health.indicator';
 import { SkipThrottle } from '@nestjs/throttler';
+import { Public } from '../../common/decorators/public.decorator';
 
+@Public()
 @SkipThrottle()
 @ApiTags('Health')
 @Controller('health')

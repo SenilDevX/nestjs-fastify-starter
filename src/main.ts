@@ -55,6 +55,7 @@ async function bootstrap() {
     .setTitle('GPMS Todo API')
     .setDescription('Learning sandbox for GPMS backend patterns')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   app.use(

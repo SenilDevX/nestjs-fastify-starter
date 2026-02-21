@@ -14,6 +14,9 @@ import * as Joi from 'joi';
 import { TodosModule } from './modules/todos/todos.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { HealthModule } from './modules/health/health.module';
+import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { AuthGuard } from './common/guards/auth.guard';
 
 @Module({
   imports: [
@@ -28,6 +31,8 @@ import { HealthModule } from './modules/health/health.module';
         MONGODB_URI: Joi.string().required(),
         REDIS_URL: Joi.string().required(),
         CORS_ORIGIN: Joi.string().default('*'),
+        JWT_ACCESS_SECRET: Joi.string().required(),
+        JWT_REFRESH_SECRET: Joi.string().required(),
       }),
     }),
     LoggerModule.forRoot({
@@ -86,10 +91,16 @@ import { HealthModule } from './modules/health/health.module';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     NotificationsModule,
+    UsersModule,
+    AuthModule,
     TodosModule,
     HealthModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

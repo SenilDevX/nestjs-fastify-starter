@@ -5,3 +5,8 @@ export interface PaginatedResult<T> {
   limit: number;
   totalPages: number;
 }
+
+export interface JwtPayload {
+  sub: string;
+  email: string;
+}
