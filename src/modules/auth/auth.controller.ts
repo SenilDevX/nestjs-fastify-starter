@@ -17,6 +17,7 @@ import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangeEmailDto } from './dto/change-email.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AllowPreTwoFactor } from '../../common/decorators/pre-two-factor.decorator';
@@ -98,6 +99,14 @@ export class AuthController {
       dto.currentPassword,
       dto.newPassword,
     );
+  }
+
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('change-email')
+  @HttpCode(HttpStatus.OK)
+  changeEmail(@CurrentUser('sub') userId: string, @Body() dto: ChangeEmailDto) {
+    return this.authService.changeEmail(userId, dto.newEmail, dto.password);
   }
 
   @ApiBearerAuth()

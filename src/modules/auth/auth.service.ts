@@ -309,6 +309,25 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
+  async changeEmail(userId: string, newEmail: string, password: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    const existing = await this.usersService.findByEmail(newEmail);
+    if (existing) throw new ConflictException('Email already in use');
+
+    await this.usersService.updateById(userId, { email: newEmail });
+
+    await this.logoutAll(userId);
+
+    return { message: 'Email updated successfully' };
+  }
+
   private async generateTokenPair(userId: string, email: string) {
     const tokenId = randomUUID();
     const version = await this.getRefreshTokenVersion(userId);
