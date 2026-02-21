@@ -60,7 +60,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
     const user = await this.usersService.create(dto.email, hashedPassword, {
       mustChangePassword: true,
-      mustSetupTwoFactor: true,
+      ...(dto.requireTwoFactorSetup && { mustSetupTwoFactor: true }),
     });
 
     await this.mailService.sendWelcomeEmail(dto.email, tempPassword);
