@@ -10,10 +10,11 @@ import { JwtService } from '@nestjs/jwt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { generateSecret, generateURI, verify as verifyOtp } from 'otplib';
 import * as QRCode from 'qrcode';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../../common/types';
@@ -25,6 +26,7 @@ const REFRESH_TOKEN_TTL = '7d';
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const APP_NAME = 'GPMS Todo';
 const OTP_WINDOW = 30;
+const RESET_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
 @Injectable()
 export class AuthService {
@@ -32,6 +34,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
@@ -239,6 +242,71 @@ export class AuthService {
     });
 
     return { message: 'Two-factor authentication disabled' };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email);
+
+    if (user) {
+      const rawToken = randomBytes(32).toString('hex');
+      const hashedToken = createHash('sha256').update(rawToken).digest('hex');
+
+      await this.usersService.updateById(user._id.toString(), {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS),
+      });
+
+      await this.mailService.sendPasswordReset(user.email, rawToken);
+    }
+
+    return {
+      message: 'If that email is registered, a reset link has been sent',
+    };
+  }
+
+  async resetPassword(token: string, password: string) {
+    const hashedToken = createHash('sha256').update(token).digest('hex');
+
+    const user = await this.usersService.findByResetToken(hashedToken);
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+    await this.usersService.updateById(user._id.toString(), {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    await this.logoutAll(user._id.toString());
+
+    return { message: 'Password reset successfully' };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.usersService.updateById(userId, { password: hashedPassword });
+
+    await this.logoutAll(userId);
+
+    return { message: 'Password changed successfully' };
   }
 
   private async generateTokenPair(userId: string, email: string) {

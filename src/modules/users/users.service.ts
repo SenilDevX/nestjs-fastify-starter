@@ -18,6 +18,14 @@ export class UsersService {
     return this.userModel.findOne({ _id: id, isDeleted: false });
   }
 
+  async findByResetToken(hashedToken: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+      isDeleted: false,
+    });
+  }
+
   async create(email: string, hashedPassword: string): Promise<UserDocument> {
     return this.userModel.create({
       email: email.toLowerCase(),

@@ -16,6 +16,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { MailModule } from './modules/mail/mail.module';
 import { AuthGuard } from './common/guards/auth.guard';
 
 @Module({
@@ -33,6 +34,12 @@ import { AuthGuard } from './common/guards/auth.guard';
         CORS_ORIGIN: Joi.string().default('*'),
         JWT_ACCESS_SECRET: Joi.string().required(),
         JWT_REFRESH_SECRET: Joi.string().required(),
+        SMTP_HOST: Joi.string().required(),
+        SMTP_PORT: Joi.number().default(587),
+        SMTP_USER: Joi.string().required(),
+        SMTP_PASS: Joi.string().required(),
+        MAIL_FROM: Joi.string().required(),
+        CLIENT_URL: Joi.string().required(),
       }),
     }),
     LoggerModule.forRoot({
@@ -91,6 +98,7 @@ import { AuthGuard } from './common/guards/auth.guard';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     NotificationsModule,
+    MailModule,
     UsersModule,
     AuthModule,
     TodosModule,

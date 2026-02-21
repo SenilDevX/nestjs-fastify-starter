@@ -23,6 +23,12 @@ export class User {
   @Prop({ type: String, default: null })
   twoFactorTempSecret!: string | null;
 
+  @Prop({ type: String, default: null })
+  passwordResetToken!: string | null;
+
+  @Prop({ type: Date, default: null })
+  passwordResetExpires!: Date | null;
+
   @Prop({ default: false })
   isDeleted!: boolean;
 }
