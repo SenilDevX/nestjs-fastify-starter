@@ -30,6 +30,12 @@ export class User {
   passwordResetExpires!: Date | null;
 
   @Prop({ default: false })
+  mustChangePassword!: boolean;
+
+  @Prop({ default: false })
+  mustSetupTwoFactor!: boolean;
+
+  @Prop({ default: false })
   isDeleted!: boolean;
 }
 

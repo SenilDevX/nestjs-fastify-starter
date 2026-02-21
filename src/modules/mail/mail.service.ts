@@ -10,4 +10,8 @@ export class MailService {
   async sendPasswordReset(email: string, token: string) {
     await this.mailQueue.add(MailEvent.PASSWORD_RESET, { email, token });
   }
+
+  async sendWelcomeEmail(email: string, tempPassword: string) {
+    await this.mailQueue.add(MailEvent.USER_CREATED, { email, tempPassword });
+  }
 }

@@ -10,6 +10,11 @@ interface PasswordResetJobData {
   token: string;
 }
 
+interface UserCreatedJobData {
+  email: string;
+  tempPassword: string;
+}
+
 @Processor('mail')
 export class MailProcessor extends WorkerHost {
   private transporter: nodemailer.Transporter;
@@ -30,11 +35,14 @@ export class MailProcessor extends WorkerHost {
     });
   }
 
-  async process(job: Job<PasswordResetJobData>) {
+  async process(job: Job<PasswordResetJobData | UserCreatedJobData>) {
     try {
       switch (job.name as MailEvent) {
         case MailEvent.PASSWORD_RESET:
-          await this.sendPasswordResetEmail(job.data);
+          await this.sendPasswordResetEmail(job.data as PasswordResetJobData);
+          break;
+        case MailEvent.USER_CREATED:
+          await this.sendWelcomeEmail(job.data as UserCreatedJobData);
           break;
         default:
           this.logger.warn(
@@ -73,6 +81,26 @@ export class MailProcessor extends WorkerHost {
     this.logger.log(
       { email: data.email },
       'Password reset email sent',
+      MailProcessor.name,
+    );
+  }
+
+  private async sendWelcomeEmail(data: UserCreatedJobData) {
+    await this.transporter.sendMail({
+      from: this.configService.get<string>('MAIL_FROM'),
+      to: data.email,
+      subject: 'Your Account Has Been Created',
+      html: `
+        <h2>Welcome!</h2>
+        <p>Your account has been created. Your temporary password is:</p>
+        <p><strong>${data.tempPassword}</strong></p>
+        <p>Please log in and change your password immediately.</p>
+      `,
+    });
+
+    this.logger.log(
+      { email: data.email },
+      'Welcome email sent',
       MailProcessor.name,
     );
   }

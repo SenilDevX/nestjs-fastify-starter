@@ -26,10 +26,16 @@ export class UsersService {
     });
   }
 
-  async create(email: string, hashedPassword: string): Promise<UserDocument> {
+  async create(
+    email: string,
+    hashedPassword: string,
+    options?: { mustChangePassword?: boolean; mustSetupTwoFactor?: boolean },
+  ): Promise<UserDocument> {
     return this.userModel.create({
       email: email.toLowerCase(),
       password: hashedPassword,
+      ...(options?.mustChangePassword && { mustChangePassword: true }),
+      ...(options?.mustSetupTwoFactor && { mustSetupTwoFactor: true }),
     });
   }
 

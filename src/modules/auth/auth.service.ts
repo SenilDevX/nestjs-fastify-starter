@@ -17,6 +17,7 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { JwtPayload } from '../../common/types';
 
 const SALT_ROUNDS = 12;
@@ -44,6 +45,25 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const user = await this.usersService.create(dto.email, hashedPassword);
+
+    return {
+      id: user._id.toString(),
+      email: user.email,
+    };
+  }
+
+  async createUser(dto: CreateUserDto) {
+    const existing = await this.usersService.findByEmail(dto.email);
+    if (existing) throw new ConflictException('Email already registered');
+
+    const tempPassword = this.generateTempPassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
+    const user = await this.usersService.create(dto.email, hashedPassword, {
+      mustChangePassword: true,
+      mustSetupTwoFactor: true,
+    });
+
+    await this.mailService.sendWelcomeEmail(dto.email, tempPassword);
 
     return {
       id: user._id.toString(),
@@ -139,6 +159,8 @@ export class AuthService {
       id: user._id.toString(),
       email: user.email,
       isTwoFactorEnabled: user.isTwoFactorEnabled,
+      mustSetupTwoFactor: user.mustSetupTwoFactor,
+      mustChangePassword: user.mustChangePassword,
       createdAt: (user as unknown as { createdAt: Date }).createdAt,
     };
   }
@@ -190,6 +212,7 @@ export class AuthService {
       isTwoFactorEnabled: true,
       twoFactorSecret: user.twoFactorTempSecret,
       twoFactorTempSecret: null,
+      ...(user.mustSetupTwoFactor && { mustSetupTwoFactor: false }),
     });
 
     return { message: 'Two-factor authentication enabled' };
@@ -301,10 +324,16 @@ export class AuthService {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
+    const wasOnboarding = user.mustChangePassword;
     const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await this.usersService.updateById(userId, { password: hashedPassword });
+    await this.usersService.updateById(userId, {
+      password: hashedPassword,
+      mustChangePassword: false,
+    });
 
-    await this.logoutAll(userId);
+    if (!wasOnboarding) {
+      await this.logoutAll(userId);
+    }
 
     return { message: 'Password changed successfully' };
   }
@@ -363,5 +392,33 @@ export class AuthService {
     return (
       (await this.cache.get<number>(`refresh_token_version:${userId}`)) ?? 0
     );
+  }
+
+  private generateTempPassword(): string {
+    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lower = 'abcdefghijklmnopqrstuvwxyz';
+    const digits = '0123456789';
+    const special = '!@#$%^&*';
+    const all = upper + lower + digits + special;
+
+    const bytes = randomBytes(16);
+    const chars = [
+      upper[bytes[0] % upper.length],
+      lower[bytes[1] % lower.length],
+      digits[bytes[2] % digits.length],
+      special[bytes[3] % special.length],
+    ];
+
+    for (let i = 4; i < 16; i++) {
+      chars.push(all[bytes[i] % all.length]);
+    }
+
+    // Shuffle using remaining entropy
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = randomBytes(1)[0] % (i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+
+    return chars.join('');
   }
 }
