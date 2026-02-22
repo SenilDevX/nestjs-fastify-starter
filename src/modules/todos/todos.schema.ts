@@ -13,7 +13,7 @@ export enum TodoStatus {
   versionKey: false,
 })
 export class Todo {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId!: Types.ObjectId;
 
   @Prop({ required: true })
@@ -30,3 +30,5 @@ export class Todo {
 }
 
 export const TodoSchema = SchemaFactory.createForClass(Todo);
+
+TodoSchema.index({ userId: 1, deletedAt: 1 });

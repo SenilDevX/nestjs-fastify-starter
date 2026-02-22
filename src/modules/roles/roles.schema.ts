@@ -31,3 +31,5 @@ export class Role {
 }
 
 export const RoleSchema = SchemaFactory.createForClass(Role);
+
+RoleSchema.index({ deletedAt: 1 });

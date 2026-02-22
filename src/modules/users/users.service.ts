@@ -139,7 +139,7 @@ export class UsersService {
     }
 
     await user.save();
-    return user;
+    return this.findByIdSafe(user._id.toString());
   }
 
   async findAllPaginated(

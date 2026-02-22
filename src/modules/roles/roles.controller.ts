@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -13,6 +14,7 @@ import type { FastifyRequest } from 'fastify';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -54,8 +56,8 @@ export class RolesController {
 
   @RequirePermission(Module.Roles, PermissionAction.Read)
   @Get()
-  findAll() {
-    return this.rolesService.findAll();
+  findAll(@Query() query: PaginationQueryDto) {
+    return this.rolesService.findAll(query.page, query.limit);
   }
 
   @RequirePermission(Module.Roles, PermissionAction.Read)

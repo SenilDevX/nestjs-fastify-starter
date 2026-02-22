@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { Role, RoleDocument } from './roles.schema';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { PaginatedResult } from '../../common/types';
 
 @Injectable()
 export class RolesService {
@@ -28,8 +29,26 @@ export class RolesService {
     });
   }
 
-  async findAll(): Promise<RoleDocument[]> {
-    return this.roleModel.find({ deletedAt: null }).sort({ createdAt: -1 });
+  async findAll(page = 1, limit = 10): Promise<PaginatedResult<RoleDocument>> {
+    const filter = { deletedAt: null };
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.roleModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      this.roleModel.countDocuments(filter),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string): Promise<RoleDocument> {
@@ -71,7 +90,9 @@ export class RolesService {
       throw new BadRequestException('Cannot delete a system role');
     }
 
-    role.deletedAt = new Date();
-    await role.save();
+    await this.roleModel.findOneAndUpdate(
+      { _id: id, deletedAt: null },
+      { deletedAt: new Date() },
+    );
   }
 }
