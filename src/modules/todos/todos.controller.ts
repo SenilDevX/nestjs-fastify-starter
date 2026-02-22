@@ -42,7 +42,7 @@ export class TodosController {
       ...dto,
       userId: new Types.ObjectId(userId),
     });
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Todos,
       recordId: todo._id.toString(),
       action: AuditAction.Created,
@@ -85,7 +85,7 @@ export class TodosController {
   ) {
     const before = await this.todosService.findOneForUser(id, userId);
     const todo = await this.todosService.updateForUser(id, dto, userId);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Todos,
       recordId: id,
       action: AuditAction.Updated,
@@ -110,7 +110,7 @@ export class TodosController {
   ) {
     const todo = await this.todosService.findOneForUser(id, userId);
     await this.todosService.removeForUser(id, userId);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Todos,
       recordId: id,
       action: AuditAction.Deleted,

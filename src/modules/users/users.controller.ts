@@ -39,7 +39,7 @@ export class UsersController {
     @Body() dto: CreateUserDto,
   ) {
     const result = await this.usersService.createUser(dto);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Users,
       recordId: result.id,
       action: AuditAction.Created,
@@ -84,7 +84,7 @@ export class UsersController {
     }
     const before = await this.usersService.findById(id);
     const result = await this.usersService.adminUpdate(id, dto);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Users,
       recordId: id,
       action: AuditAction.Updated,
@@ -112,7 +112,7 @@ export class UsersController {
     }
     const user = await this.usersService.findByIdSafe(id);
     await this.usersService.softDelete(id);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Users,
       recordId: id,
       action: AuditAction.Deleted,

@@ -38,7 +38,7 @@ export class RolesController {
     @Body() dto: CreateRoleDto,
   ) {
     const role = await this.rolesService.create(dto);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Roles,
       recordId: role._id.toString(),
       action: AuditAction.Created,
@@ -76,7 +76,7 @@ export class RolesController {
   ) {
     const before = await this.rolesService.findById(id);
     const role = await this.rolesService.update(id, dto);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Roles,
       recordId: id,
       action: AuditAction.Updated,
@@ -103,7 +103,7 @@ export class RolesController {
   ) {
     const role = await this.rolesService.findById(id);
     await this.rolesService.delete(id);
-    await this.auditsService.log({
+    void this.auditsService.log({
       module: Module.Roles,
       recordId: id,
       action: AuditAction.Deleted,
