@@ -10,6 +10,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
+import cookie from '@fastify/cookie';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -28,6 +29,9 @@ async function bootstrap() {
   // Plugins
   await app.register(helmet);
   await app.register(compress);
+  await app.register(cookie, {
+    secret: configService.get<string>('COOKIE_SECRET'),
+  });
 
   // Middlewares
   app.useLogger(app.get(Logger));
@@ -43,9 +47,11 @@ async function bootstrap() {
   // CORS
   const corsOrigin = configService.get<string>('CORS_ORIGIN', '*');
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' ? corsOrigin.split(',') : '*',
+    origin:
+      process.env.NODE_ENV === 'production' ? corsOrigin.split(',') : true,
+    credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type'],
   });
 
   // API docs
@@ -53,7 +59,7 @@ async function bootstrap() {
     .setTitle('GPMS Todo API')
     .setDescription('Learning sandbox for GPMS backend patterns')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addCookieAuth('access_token')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   app.use(

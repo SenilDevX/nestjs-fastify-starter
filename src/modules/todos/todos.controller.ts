@@ -9,7 +9,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { FastifyRequest } from 'fastify';
 import { Types } from 'mongoose';
 import { TodosService } from './todos.service';
@@ -22,7 +22,7 @@ import { RequirePermission } from 'src/common/decorators/require-permission.deco
 import { AuditAction, Module, PermissionAction } from 'src/common/enums';
 import { AuditsService } from '../audits/audits.service';
 
-@ApiBearerAuth()
+@ApiCookieAuth()
 @ApiTags('Todos')
 @Controller('todos')
 export class TodosController {

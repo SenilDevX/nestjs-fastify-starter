@@ -1,11 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { AuditsService } from './audits.service';
 import { ListAuditsQueryDto } from './dto/list-audits-query.dto';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { Module, PermissionAction } from '../../common/enums';
 
-@ApiBearerAuth()
+@ApiCookieAuth()
 @ApiTags('Audits')
 @Controller('audits')
 export class AuditsController {

@@ -28,41 +28,38 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const token = this.extractTokenFromHeader(request);
+
+    const allowPreTwoFactor = this.reflector.getAllAndOverride<boolean>(
+      ALLOW_PRE_TWO_FACTOR_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    const token = allowPreTwoFactor
+      ? request.cookies['temp_token']
+      : request.cookies['access_token'];
+
     if (!token) throw new UnauthorizedException();
 
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
         secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       });
+
+      if (!allowPreTwoFactor && payload.twoFactorVerified === false) {
+        throw new UnauthorizedException('Two-factor authentication required');
+      }
+
       (request as FastifyRequest & { user: JwtPayload }).user = payload;
     } catch {
       throw new UnauthorizedException();
     }
 
-    // Block pre-2FA temp tokens from accessing regular routes
-    const payload = (request as FastifyRequest & { user: JwtPayload }).user;
-    if (payload.twoFactorVerified === false) {
-      const allowPreTwoFactor = this.reflector.getAllAndOverride<boolean>(
-        ALLOW_PRE_TWO_FACTOR_KEY,
-        [context.getHandler(), context.getClass()],
-      );
-      if (!allowPreTwoFactor) {
-        throw new UnauthorizedException('Two-factor authentication required');
-      }
-    }
-
     // NOTE: Access tokens remain valid until expiry (15 min) even after logout.
     // This is the standard JWT tradeoff — same as Better Auth, Lucia, etc.
-    // The frontend clears tokens on logout, so users are effectively logged out instantly.
+    // The cookies are cleared on logout, so users are effectively logged out instantly.
     // To close this gap, can add a Redis check here (e.g., token blacklist or session lookup),
     // but that adds a Redis round-trip to every authenticated request.
 
     return true;
-  }
-
-  private extractTokenFromHeader(request: FastifyRequest): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
   }
 }

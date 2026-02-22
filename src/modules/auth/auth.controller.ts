@@ -5,13 +5,16 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
+  Res,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import * as Fastify from 'fastify';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -21,6 +24,12 @@ import { ChangeEmailDto } from './dto/change-email.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AllowPreTwoFactor } from '../../common/decorators/pre-two-factor.decorator';
+import {
+  setAccessTokenCookie,
+  setRefreshTokenCookie,
+  setTempTokenCookie,
+  clearAuthCookies,
+} from '../../common/utils/cookie.util';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -38,16 +47,39 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) reply: Fastify.FastifyReply,
+  ) {
+    const result = await this.authService.login(dto);
+
+    if ('requiresTwoFactor' in result) {
+      setTempTokenCookie(reply, result.tempToken);
+      return { requiresTwoFactor: true };
+    }
+
+    setAccessTokenCookie(reply, result.accessToken);
+    setRefreshTokenCookie(reply, result.refreshToken);
+    return { message: 'Logged in successfully' };
   }
 
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.authService.refresh(dto.refreshToken);
+  async refresh(
+    @Req() request: Fastify.FastifyRequest,
+    @Res({ passthrough: true }) reply: Fastify.FastifyReply,
+  ) {
+    const refreshToken = request.cookies['refresh_token'];
+    if (!refreshToken) throw new UnauthorizedException('Missing refresh token');
+
+    const result = await this.authService.refresh(refreshToken);
+
+    setAccessTokenCookie(reply, result.accessToken);
+    setRefreshTokenCookie(reply, result.refreshToken);
+
+    return { message: 'Tokens refreshed' };
   }
 
   @Public()
@@ -66,27 +98,40 @@ export class AuthController {
     return this.authService.resetPassword(dto.token, dto.password);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@CurrentUser('sub') userId: string, @Body() dto: RefreshTokenDto) {
-    return this.authService.logout(userId, dto.refreshToken);
+  async logout(
+    @CurrentUser('sub') userId: string,
+    @Req() request: Fastify.FastifyRequest,
+    @Res({ passthrough: true }) reply: Fastify.FastifyReply,
+  ) {
+    const refreshToken = request.cookies['refresh_token'];
+    if (refreshToken) {
+      await this.authService.logout(userId, refreshToken);
+    }
+
+    clearAuthCookies(reply);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
-  logoutAll(@CurrentUser('sub') userId: string) {
-    return this.authService.logoutAll(userId);
+  async logoutAll(
+    @CurrentUser('sub') userId: string,
+    @Res({ passthrough: true }) reply: Fastify.FastifyReply,
+  ) {
+    await this.authService.logoutAll(userId);
+    clearAuthCookies(reply);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Get('me')
   getProfile(@CurrentUser('sub') userId: string) {
     return this.authService.getProfile(userId);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
@@ -101,7 +146,7 @@ export class AuthController {
     );
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('change-email')
   @HttpCode(HttpStatus.OK)
@@ -109,14 +154,14 @@ export class AuthController {
     return this.authService.changeEmail(userId, dto.newEmail, dto.password);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Post('2fa/setup')
   @HttpCode(HttpStatus.OK)
   setupTwoFactor(@CurrentUser('sub') userId: string) {
     return this.authService.setupTwoFactor(userId);
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('2fa/confirm')
   @HttpCode(HttpStatus.OK)
@@ -128,18 +173,28 @@ export class AuthController {
   }
 
   @AllowPreTwoFactor()
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('2fa/authenticate')
   @HttpCode(HttpStatus.OK)
-  authenticateTwoFactor(
+  async authenticateTwoFactor(
     @CurrentUser('sub') userId: string,
     @Body() dto: VerifyOtpDto,
+    @Res({ passthrough: true }) reply: Fastify.FastifyReply,
   ) {
-    return this.authService.authenticateTwoFactor(userId, dto.token);
+    const result = await this.authService.authenticateTwoFactor(
+      userId,
+      dto.token,
+    );
+
+    reply.clearCookie('temp_token', { path: '/auth/2fa' });
+    setAccessTokenCookie(reply, result.accessToken);
+    setRefreshTokenCookie(reply, result.refreshToken);
+
+    return { message: 'Two-factor authentication verified' };
   }
 
-  @ApiBearerAuth()
+  @ApiCookieAuth()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('2fa/disable')
   @HttpCode(HttpStatus.OK)

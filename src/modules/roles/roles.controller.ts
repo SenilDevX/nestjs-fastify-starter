@@ -9,7 +9,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { FastifyRequest } from 'fastify';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -21,7 +21,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuditAction, Module, PermissionAction } from '../../common/enums';
 import { AuditsService } from '../audits/audits.service';
 
-@ApiBearerAuth()
+@ApiCookieAuth()
 @ApiTags('Roles')
 @Controller('roles')
 export class RolesController {
