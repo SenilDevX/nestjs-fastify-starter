@@ -51,3 +51,5 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ deletedAt: 1 });
+UserSchema.index({ passwordResetToken: 1 });
+UserSchema.index({ roleId: 1 });
