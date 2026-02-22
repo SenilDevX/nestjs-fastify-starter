@@ -350,7 +350,9 @@ export class AuthService {
     const existing = await this.usersService.findByEmail(newEmail);
     if (existing) throw new ConflictException('Email already in use');
 
-    await this.usersService.updateById(userId, { email: newEmail });
+    await this.usersService.updateById(userId, {
+      email: newEmail.toLowerCase(),
+    });
 
     await this.logoutAll(userId);
 
