@@ -8,7 +8,7 @@ import { redisStore } from 'cache-manager-redis-yet';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BullModule } from '@nestjs/bullmq';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import * as Joi from 'joi';
 
 import { TodosModule } from './modules/todos/todos.module';
@@ -20,6 +20,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AuditsModule } from './modules/audits/audits.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
@@ -112,6 +113,10 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     HealthModule,
   ],
   providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

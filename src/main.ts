@@ -13,7 +13,6 @@ import compress from '@fastify/compress';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 const TEN_MB = 10 * 1024 * 1024;
 
@@ -40,7 +39,6 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new ResponseInterceptor());
-  app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS
   const corsOrigin = configService.get<string>('CORS_ORIGIN', '*');

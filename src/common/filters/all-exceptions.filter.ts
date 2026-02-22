@@ -3,13 +3,14 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
-  Logger,
+  Inject,
 } from '@nestjs/common';
 import { FastifyReply } from 'fastify';
+import { Logger } from 'nestjs-pino';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+  constructor(@Inject(Logger) private readonly logger: Logger) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
