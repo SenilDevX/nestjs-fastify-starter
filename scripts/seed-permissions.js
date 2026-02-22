@@ -2,13 +2,14 @@
 const { connect, connection, model, Schema } = require('mongoose');
 const readline = require('readline');
 
-// ── Enums (mirrored from src/common/enums/permission.enum.ts) ──
+// ── Enums (mirrored from src/common/enums/index.ts) ──
 
-const PermissionModule = {
+const Module = {
   Users: 'users',
   Roles: 'roles',
   Permissions: 'permissions',
   Todos: 'todos',
+  Audits: 'audits',
 };
 
 const PermissionAction = {
@@ -18,7 +19,7 @@ const PermissionAction = {
   Delete: 'delete',
 };
 
-const M = PermissionModule;
+const M = Module;
 const A = PermissionAction;
 
 // ── Schemas ──
@@ -80,6 +81,9 @@ const PERMISSIONS = [
   p(M.Todos, A.Read, 'View todos'),
   p(M.Todos, A.Update, 'Update todos'),
   p(M.Todos, A.Delete, 'Delete todos'),
+
+  // Audits
+  p(M.Audits, A.Read, 'View audit logs'),
 ];
 
 // ── Helpers ──

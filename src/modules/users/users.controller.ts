@@ -8,8 +8,10 @@ import {
   Post,
   Query,
   Body,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -17,24 +19,43 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import {
-  PermissionAction,
-  PermissionModule,
-} from '../../common/enums/permission.enum';
+import { AuditAction, Module, PermissionAction } from '../../common/enums';
+import { AuditsService } from '../audits/audits.service';
 
 @ApiBearerAuth()
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly auditsService: AuditsService,
+  ) {}
 
-  @RequirePermission(PermissionModule.Users, PermissionAction.Create)
+  @RequirePermission(Module.Users, PermissionAction.Create)
   @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.createUser(dto);
+  async create(
+    @Req() req: FastifyRequest,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: CreateUserDto,
+  ) {
+    const result = await this.usersService.createUser(dto);
+    await this.auditsService.log({
+      module: Module.Users,
+      recordId: result.id,
+      action: AuditAction.Created,
+      userId,
+      ipAddress: req.ip,
+      newValues: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        email: dto.email,
+        roleId: dto.roleId,
+      },
+    });
+    return result;
   }
 
-  @RequirePermission(PermissionModule.Users, PermissionAction.Read)
+  @RequirePermission(Module.Users, PermissionAction.Read)
   @Get()
   findAll(@Query() query: ListUsersQueryDto) {
     return this.usersService.findAllPaginated(
@@ -44,15 +65,16 @@ export class UsersController {
     );
   }
 
-  @RequirePermission(PermissionModule.Users, PermissionAction.Read)
+  @RequirePermission(Module.Users, PermissionAction.Read)
   @Get(':id')
   findOne(@Param('id', ParseObjectIdPipe) id: string) {
     return this.usersService.findByIdSafe(id);
   }
 
-  @RequirePermission(PermissionModule.Users, PermissionAction.Update)
+  @RequirePermission(Module.Users, PermissionAction.Update)
   @Patch(':id')
-  update(
+  async update(
+    @Req() req: FastifyRequest,
     @CurrentUser('sub') currentUserId: string,
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateUserDto,
@@ -60,18 +82,47 @@ export class UsersController {
     if (currentUserId === id) {
       throw new BadRequestException('Cannot modify your own account');
     }
-    return this.usersService.adminUpdate(id, dto);
+    const before = await this.usersService.findById(id);
+    const result = await this.usersService.adminUpdate(id, dto);
+    await this.auditsService.log({
+      module: Module.Users,
+      recordId: id,
+      action: AuditAction.Updated,
+      userId: currentUserId,
+      ipAddress: req.ip,
+      previousValues: {
+        roleId: before?.roleId?.toString() ?? null,
+        isTwoFactorEnabled: before?.isTwoFactorEnabled,
+        mustSetupTwoFactor: before?.mustSetupTwoFactor,
+      },
+      newValues: { ...dto },
+    });
+    return result;
   }
 
-  @RequirePermission(PermissionModule.Users, PermissionAction.Delete)
+  @RequirePermission(Module.Users, PermissionAction.Delete)
   @Delete(':id')
   async remove(
+    @Req() req: FastifyRequest,
     @CurrentUser('sub') currentUserId: string,
     @Param('id', ParseObjectIdPipe) id: string,
   ) {
     if (currentUserId === id) {
       throw new BadRequestException('Cannot delete your own account');
     }
+    const user = await this.usersService.findByIdSafe(id);
     await this.usersService.softDelete(id);
+    await this.auditsService.log({
+      module: Module.Users,
+      recordId: id,
+      action: AuditAction.Deleted,
+      userId: currentUserId,
+      ipAddress: req.ip,
+      previousValues: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      },
+    });
   }
 }

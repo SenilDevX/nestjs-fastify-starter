@@ -8,6 +8,12 @@ export type UserDocument = HydratedDocument<User>;
   versionKey: false,
 })
 export class User {
+  @Prop({ required: true, trim: true })
+  firstName!: string;
+
+  @Prop({ required: true, trim: true })
+  lastName!: string;
+
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email!: string;
 

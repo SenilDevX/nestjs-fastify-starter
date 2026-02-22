@@ -19,6 +19,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { AuditsModule } from './modules/audits/audits.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
@@ -106,6 +107,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     RolesModule,
     UsersModule,
     AuthModule,
+    AuditsModule,
     TodosModule,
     HealthModule,
   ],

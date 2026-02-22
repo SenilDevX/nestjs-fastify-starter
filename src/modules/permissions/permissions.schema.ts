@@ -1,9 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import {
-  PermissionAction,
-  PermissionModule,
-} from '../../common/enums/permission.enum';
+import { Module, PermissionAction } from '../../common/enums';
 
 export type PermissionDocument = HydratedDocument<Permission>;
 
@@ -15,8 +12,8 @@ export class Permission {
   @Prop({ required: true, unique: true, trim: true })
   name!: string;
 
-  @Prop({ required: true, enum: PermissionModule })
-  module!: PermissionModule;
+  @Prop({ required: true, enum: Module })
+  module!: Module;
 
   @Prop({ required: true, enum: PermissionAction })
   action!: PermissionAction;

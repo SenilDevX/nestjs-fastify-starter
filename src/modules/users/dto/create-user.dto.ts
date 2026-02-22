@@ -8,6 +8,16 @@ import {
 } from 'class-validator';
 
 export class CreateUserDto {
+  @ApiProperty({ example: 'John' })
+  @IsString()
+  @IsNotEmpty()
+  firstName!: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @IsString()
+  @IsNotEmpty()
+  lastName!: string;
+
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
   email!: string;

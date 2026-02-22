@@ -24,6 +24,8 @@ const Role = model('Role', roleSchema);
 
 const userSchema = new Schema(
   {
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
     isTwoFactorEnabled: { type: Boolean, default: false },
@@ -62,6 +64,18 @@ async function main() {
   const mongoUri = await prompt('MongoDB connection string: ');
   if (!mongoUri) {
     console.error('No connection string provided. Exiting.');
+    process.exit(1);
+  }
+
+  const firstName = await prompt('First name: ');
+  if (!firstName) {
+    console.error('No first name provided. Exiting.');
+    process.exit(1);
+  }
+
+  const lastName = await prompt('Last name: ');
+  if (!lastName) {
+    console.error('No last name provided. Exiting.');
     process.exit(1);
   }
 
@@ -104,6 +118,8 @@ async function main() {
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
   await User.create({
+    firstName,
+    lastName,
     email: email.toLowerCase(),
     password: hashedPassword,
     roleId: superAdminRole._id,

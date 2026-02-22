@@ -44,7 +44,10 @@ export class AuthService {
     if (existing) throw new ConflictException('Email already registered');
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const user = await this.usersService.create(dto.email, hashedPassword);
+    const user = await this.usersService.create(
+      { firstName: dto.firstName, lastName: dto.lastName, email: dto.email },
+      hashedPassword,
+    );
 
     return {
       id: user._id.toString(),
@@ -140,6 +143,8 @@ export class AuthService {
 
     return {
       id: user._id.toString(),
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       isTwoFactorEnabled: user.isTwoFactorEnabled,
       mustSetupTwoFactor: user.mustSetupTwoFactor,

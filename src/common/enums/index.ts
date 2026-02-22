@@ -1,8 +1,9 @@
-export enum PermissionModule {
+export enum Module {
   Users = 'users',
   Roles = 'roles',
   Permissions = 'permissions',
   Todos = 'todos',
+  Audits = 'audits',
 }
 
 export enum PermissionAction {
@@ -10,4 +11,11 @@ export enum PermissionAction {
   Read = 'read',
   Update = 'update',
   Delete = 'delete',
+}
+
+export enum AuditAction {
+  Created = 'created',
+  Updated = 'updated',
+  Deleted = 'deleted',
+  Restored = 'restored',
 }

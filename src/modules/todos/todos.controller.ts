@@ -7,8 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { FastifyRequest } from 'fastify';
 import { Types } from 'mongoose';
 import { TodosService } from './todos.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
@@ -17,27 +19,41 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { ParseObjectIdPipe } from 'src/common/pipes/parse-object-id.pipe';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RequirePermission } from 'src/common/decorators/require-permission.decorator';
-import {
-  PermissionAction,
-  PermissionModule,
-} from 'src/common/enums/permission.enum';
+import { AuditAction, Module, PermissionAction } from 'src/common/enums';
+import { AuditsService } from '../audits/audits.service';
 
 @ApiBearerAuth()
 @ApiTags('Todos')
 @Controller('todos')
 export class TodosController {
-  constructor(private readonly todosService: TodosService) {}
+  constructor(
+    private readonly todosService: TodosService,
+    private readonly auditsService: AuditsService,
+  ) {}
 
-  @RequirePermission(PermissionModule.Todos, PermissionAction.Create)
+  @RequirePermission(Module.Todos, PermissionAction.Create)
   @Post()
-  create(@CurrentUser('sub') userId: string, @Body() dto: CreateTodoDto) {
-    return this.todosService.create({
+  async create(
+    @Req() req: FastifyRequest,
+    @CurrentUser('sub') userId: string,
+    @Body() dto: CreateTodoDto,
+  ) {
+    const todo = await this.todosService.create({
       ...dto,
       userId: new Types.ObjectId(userId),
     });
+    await this.auditsService.log({
+      module: Module.Todos,
+      recordId: todo._id.toString(),
+      action: AuditAction.Created,
+      userId,
+      ipAddress: req.ip,
+      newValues: { ...dto },
+    });
+    return todo;
   }
 
-  @RequirePermission(PermissionModule.Todos, PermissionAction.Read)
+  @RequirePermission(Module.Todos, PermissionAction.Read)
   @Get()
   findAll(
     @CurrentUser('sub') userId: string,
@@ -50,7 +66,7 @@ export class TodosController {
     );
   }
 
-  @RequirePermission(PermissionModule.Todos, PermissionAction.Read)
+  @RequirePermission(Module.Todos, PermissionAction.Read)
   @Get(':id')
   findOne(
     @CurrentUser('sub') userId: string,
@@ -59,22 +75,48 @@ export class TodosController {
     return this.todosService.findOneForUser(id, userId);
   }
 
-  @RequirePermission(PermissionModule.Todos, PermissionAction.Update)
+  @RequirePermission(Module.Todos, PermissionAction.Update)
   @Patch(':id')
-  update(
+  async update(
+    @Req() req: FastifyRequest,
     @CurrentUser('sub') userId: string,
     @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateTodoDto,
   ) {
-    return this.todosService.updateForUser(id, dto, userId);
+    const before = await this.todosService.findOneForUser(id, userId);
+    const todo = await this.todosService.updateForUser(id, dto, userId);
+    await this.auditsService.log({
+      module: Module.Todos,
+      recordId: id,
+      action: AuditAction.Updated,
+      userId,
+      ipAddress: req.ip,
+      previousValues: {
+        title: before.title,
+        description: before.description,
+        status: before.status,
+      },
+      newValues: { ...dto },
+    });
+    return todo;
   }
 
-  @RequirePermission(PermissionModule.Todos, PermissionAction.Delete)
+  @RequirePermission(Module.Todos, PermissionAction.Delete)
   @Delete(':id')
-  remove(
+  async remove(
+    @Req() req: FastifyRequest,
     @CurrentUser('sub') userId: string,
     @Param('id', ParseObjectIdPipe) id: string,
   ) {
-    return this.todosService.removeForUser(id, userId);
+    const todo = await this.todosService.findOneForUser(id, userId);
+    await this.todosService.removeForUser(id, userId);
+    await this.auditsService.log({
+      module: Module.Todos,
+      recordId: id,
+      action: AuditAction.Deleted,
+      userId,
+      ipAddress: req.ip,
+      previousValues: { title: todo.title },
+    });
   }
 }

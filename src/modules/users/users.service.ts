@@ -47,7 +47,7 @@ export class UsersService {
   }
 
   async create(
-    email: string,
+    data: { firstName: string; lastName: string; email: string },
     hashedPassword: string,
     options?: {
       mustChangePassword?: boolean;
@@ -56,7 +56,9 @@ export class UsersService {
     },
   ): Promise<UserDocument> {
     return this.userModel.create({
-      email: email.toLowerCase(),
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email.toLowerCase(),
       password: hashedPassword,
       ...(options?.mustChangePassword && { mustChangePassword: true }),
       ...(options?.mustSetupTwoFactor && { mustSetupTwoFactor: true }),
@@ -70,11 +72,15 @@ export class UsersService {
 
     const tempPassword = this.generateTempPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
-    const user = await this.create(dto.email, hashedPassword, {
-      mustChangePassword: true,
-      ...(dto.requireTwoFactorSetup && { mustSetupTwoFactor: true }),
-      roleId: dto.roleId,
-    });
+    const user = await this.create(
+      { firstName: dto.firstName, lastName: dto.lastName, email: dto.email },
+      hashedPassword,
+      {
+        mustChangePassword: true,
+        ...(dto.requireTwoFactorSetup && { mustSetupTwoFactor: true }),
+        roleId: dto.roleId,
+      },
+    );
 
     await this.mailService.sendWelcomeEmail(dto.email, tempPassword);
 
