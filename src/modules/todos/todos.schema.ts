@@ -25,8 +25,8 @@ export class Todo {
   @Prop({ enum: TodoStatus, default: TodoStatus.PENDING })
   status!: TodoStatus;
 
-  @Prop({ default: false })
-  isDeleted!: boolean;
+  @Prop({ type: Date, default: null })
+  deletedAt!: Date | null;
 }
 
 export const TodoSchema = SchemaFactory.createForClass(Todo);

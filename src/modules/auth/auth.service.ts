@@ -17,8 +17,8 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { CreateUserDto } from './dto/create-user.dto';
 import { JwtPayload } from '../../common/types';
+import type { RoleDocument } from '../roles/roles.schema';
 
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_TTL = '15m';
@@ -45,25 +45,6 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
     const user = await this.usersService.create(dto.email, hashedPassword);
-
-    return {
-      id: user._id.toString(),
-      email: user.email,
-    };
-  }
-
-  async createUser(dto: CreateUserDto) {
-    const existing = await this.usersService.findByEmail(dto.email);
-    if (existing) throw new ConflictException('Email already registered');
-
-    const tempPassword = this.generateTempPassword();
-    const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
-    const user = await this.usersService.create(dto.email, hashedPassword, {
-      mustChangePassword: true,
-      ...(dto.requireTwoFactorSetup && { mustSetupTwoFactor: true }),
-    });
-
-    await this.mailService.sendWelcomeEmail(dto.email, tempPassword);
 
     return {
       id: user._id.toString(),
@@ -152,8 +133,10 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
-    const user = await this.usersService.findById(userId);
+    const user = await this.usersService.findByIdWithRole(userId);
     if (!user) throw new UnauthorizedException('User not found');
+
+    const populatedRole = user.roleId as unknown as RoleDocument | null;
 
     return {
       id: user._id.toString(),
@@ -161,6 +144,13 @@ export class AuthService {
       isTwoFactorEnabled: user.isTwoFactorEnabled,
       mustSetupTwoFactor: user.mustSetupTwoFactor,
       mustChangePassword: user.mustChangePassword,
+      role: populatedRole?._id
+        ? {
+            id: populatedRole._id.toString(),
+            name: populatedRole.name,
+            permissions: populatedRole.permissions,
+          }
+        : null,
       createdAt: (user as unknown as { createdAt: Date }).createdAt,
     };
   }
@@ -238,10 +228,15 @@ export class AuthService {
   }
 
   async disableTwoFactor(userId: string, password: string, token: string) {
-    const user = await this.usersService.findById(userId);
+    const user = await this.usersService.findByIdWithRole(userId);
     if (!user) throw new UnauthorizedException('User not found');
     if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {
       throw new BadRequestException('Two-factor authentication is not enabled');
+    }
+
+    const populatedRole = user.roleId as unknown as RoleDocument | null;
+    if (populatedRole?.requiresTwoFactor) {
+      throw new BadRequestException('Cannot disable 2FA — required by role');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -392,33 +387,5 @@ export class AuthService {
     return (
       (await this.cache.get<number>(`refresh_token_version:${userId}`)) ?? 0
     );
-  }
-
-  private generateTempPassword(): string {
-    const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lower = 'abcdefghijklmnopqrstuvwxyz';
-    const digits = '0123456789';
-    const special = '!@#$%^&*';
-    const all = upper + lower + digits + special;
-
-    const bytes = randomBytes(16);
-    const chars = [
-      upper[bytes[0] % upper.length],
-      lower[bytes[1] % lower.length],
-      digits[bytes[2] % digits.length],
-      special[bytes[3] % special.length],
-    ];
-
-    for (let i = 4; i < 16; i++) {
-      chars.push(all[bytes[i] % all.length]);
-    }
-
-    // Shuffle using remaining entropy
-    for (let i = chars.length - 1; i > 0; i--) {
-      const j = randomBytes(1)[0] % (i + 1);
-      [chars[i], chars[j]] = [chars[j], chars[i]];
-    }
-
-    return chars.join('');
   }
 }

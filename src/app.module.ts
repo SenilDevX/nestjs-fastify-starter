@@ -17,7 +17,10 @@ import { HealthModule } from './modules/health/health.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
+import { RolesModule } from './modules/roles/roles.module';
 import { AuthGuard } from './common/guards/auth.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 
 @Module({
   imports: [
@@ -99,6 +102,8 @@ import { AuthGuard } from './common/guards/auth.guard';
     ScheduleModule.forRoot(),
     NotificationsModule,
     MailModule,
+    PermissionsModule,
+    RolesModule,
     UsersModule,
     AuthModule,
     TodosModule,
@@ -108,6 +113,10 @@ import { AuthGuard } from './common/guards/auth.guard';
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
     {
       provide: APP_GUARD,

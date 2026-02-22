@@ -59,7 +59,7 @@ export abstract class BaseService<T extends Document> {
   ): Promise<PaginatedResult<T>> {
     const safePage = Math.max(1, page);
     const skip = (safePage - 1) * limit;
-    const baseFilter = { ...filter, isDeleted: false };
+    const baseFilter = { ...filter, deletedAt: null };
 
     if (this.cacheConfig) {
       const { prefix } = this.cacheConfig;
@@ -116,7 +116,7 @@ export abstract class BaseService<T extends Document> {
 
     const doc = await this.model.findOne({
       _id: id,
-      isDeleted: false,
+      deletedAt: null,
     } as QueryFilter<T>);
     if (!doc) throw new NotFoundException('Record not found');
 
@@ -129,7 +129,7 @@ export abstract class BaseService<T extends Document> {
 
   async update(id: string, dto: UpdateQuery<T>): Promise<T> {
     const doc = await this.model.findOneAndUpdate(
-      { _id: id, isDeleted: false } as QueryFilter<T>,
+      { _id: id, deletedAt: null } as QueryFilter<T>,
       dto,
       { new: true },
     );
@@ -146,8 +146,8 @@ export abstract class BaseService<T extends Document> {
 
   async remove(id: string): Promise<void> {
     const doc = await this.model.findOneAndUpdate(
-      { _id: id, isDeleted: false } as QueryFilter<T>,
-      { isDeleted: true } as UpdateQuery<T>,
+      { _id: id, deletedAt: null } as QueryFilter<T>,
+      { deletedAt: new Date() } as UpdateQuery<T>,
     );
     if (!doc) throw new NotFoundException('Record not found');
 

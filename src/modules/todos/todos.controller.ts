@@ -16,6 +16,11 @@ import { UpdateTodoDto } from './dto/update-todo.dto';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { ParseObjectIdPipe } from 'src/common/pipes/parse-object-id.pipe';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { RequirePermission } from 'src/common/decorators/require-permission.decorator';
+import {
+  PermissionAction,
+  PermissionModule,
+} from 'src/common/enums/permission.enum';
 
 @ApiBearerAuth()
 @ApiTags('Todos')
@@ -23,6 +28,7 @@ import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 export class TodosController {
   constructor(private readonly todosService: TodosService) {}
 
+  @RequirePermission(PermissionModule.Todos, PermissionAction.Create)
   @Post()
   create(@CurrentUser('sub') userId: string, @Body() dto: CreateTodoDto) {
     return this.todosService.create({
@@ -31,6 +37,7 @@ export class TodosController {
     });
   }
 
+  @RequirePermission(PermissionModule.Todos, PermissionAction.Read)
   @Get()
   findAll(
     @CurrentUser('sub') userId: string,
@@ -43,6 +50,7 @@ export class TodosController {
     );
   }
 
+  @RequirePermission(PermissionModule.Todos, PermissionAction.Read)
   @Get(':id')
   findOne(
     @CurrentUser('sub') userId: string,
@@ -51,6 +59,7 @@ export class TodosController {
     return this.todosService.findOneForUser(id, userId);
   }
 
+  @RequirePermission(PermissionModule.Todos, PermissionAction.Update)
   @Patch(':id')
   update(
     @CurrentUser('sub') userId: string,
@@ -60,6 +69,7 @@ export class TodosController {
     return this.todosService.updateForUser(id, dto, userId);
   }
 
+  @RequirePermission(PermissionModule.Todos, PermissionAction.Delete)
   @Delete(':id')
   remove(
     @CurrentUser('sub') userId: string,

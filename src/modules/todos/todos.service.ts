@@ -47,7 +47,7 @@ export class TodosService extends BaseService<TodoDocument> {
     const doc = await this.todoModel.findOne({
       _id: id,
       userId: new Types.ObjectId(userId),
-      isDeleted: false,
+      deletedAt: null,
     } as QueryFilter<TodoDocument>);
     if (!doc) throw new NotFoundException('Record not found');
     return doc;
@@ -62,7 +62,7 @@ export class TodosService extends BaseService<TodoDocument> {
       {
         _id: id,
         userId: new Types.ObjectId(userId),
-        isDeleted: false,
+        deletedAt: null,
       } as QueryFilter<TodoDocument>,
       dto as UpdateQuery<TodoDocument>,
       { new: true },
@@ -77,9 +77,9 @@ export class TodosService extends BaseService<TodoDocument> {
       {
         _id: id,
         userId: new Types.ObjectId(userId),
-        isDeleted: false,
+        deletedAt: null,
       } as QueryFilter<TodoDocument>,
-      { isDeleted: true } as UpdateQuery<TodoDocument>,
+      { deletedAt: new Date() } as UpdateQuery<TodoDocument>,
     );
     if (!doc) throw new NotFoundException('Record not found');
     await this.afterRemove(id);
