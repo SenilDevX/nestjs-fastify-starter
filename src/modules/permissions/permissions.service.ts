@@ -13,8 +13,4 @@ export class PermissionsService {
   async findAll(): Promise<PermissionDocument[]> {
     return this.permissionModel.find().sort({ module: 1, action: 1 });
   }
-
-  async findByIds(ids: string[]): Promise<PermissionDocument[]> {
-    return this.permissionModel.find({ _id: { $in: ids } });
-  }
 }
