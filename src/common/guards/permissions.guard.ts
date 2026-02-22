@@ -10,14 +10,13 @@ import { REQUIRE_PERMISSION_KEY } from '../decorators/require-permission.decorat
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { JwtPayload } from '../types';
 import { UsersService } from '../../modules/users/users.service';
-import { RolesService } from '../../modules/roles/roles.service';
+import type { RoleDocument } from '../../modules/roles/roles.schema';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly usersService: UsersService,
-    private readonly rolesService: RolesService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -38,14 +37,14 @@ export class PermissionsGuard implements CanActivate {
       .getRequest<FastifyRequest & { user: JwtPayload }>();
     const userId = request.user?.sub;
 
-    const user = await this.usersService.findById(userId);
+    const user = await this.usersService.findByIdWithRole(userId);
     if (!user?.roleId) {
       throw new ForbiddenException('No role assigned');
     }
 
-    const role = await this.rolesService.findById(user.roleId.toString());
+    const role = user.roleId as unknown as RoleDocument | null;
 
-    if (!role.isActive) {
+    if (!role?.isActive) {
       throw new ForbiddenException('Role is inactive');
     }
 
