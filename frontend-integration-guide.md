@@ -33,7 +33,12 @@ Public | Rate limit: 5/min
 
 **Request**
 ```json
-{ "email": "user@example.com", "password": "P@ssw0rd" }
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "user@example.com",
+  "password": "P@ssw0rd"
+}
 ```
 
 **Response** `201`
@@ -125,14 +130,23 @@ Authenticated
   "success": true,
   "data": {
     "id": "...",
+    "firstName": "John",
+    "lastName": "Doe",
     "email": "user@example.com",
     "isTwoFactorEnabled": false,
     "mustSetupTwoFactor": true,
     "mustChangePassword": true,
+    "role": {
+      "id": "...",
+      "name": "Editor",
+      "permissions": ["todos:read", "todos:create"]
+    },
     "createdAt": "2026-01-01T00:00:00.000Z"
   }
 }
 ```
+
+`role` is `null` if no role is assigned.
 
 ### Onboarding flags
 
@@ -151,16 +165,22 @@ Authenticated
 ## 5. Admin: Create User
 
 ```
-POST /auth/create-user
-Authenticated | Rate limit: 5/min
+POST /users
+Authenticated | Permission: users:create
 ```
 
 **Request**
 ```json
-{ "email": "newuser@example.com", "requireTwoFactorSetup": true }
+{
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "email": "newuser@example.com",
+  "roleId": "507f1f77bcf86cd799439011",
+  "requireTwoFactorSetup": true
+}
 ```
 
-`requireTwoFactorSetup` is optional (defaults to `false`). When `true`, the user must set up 2FA during onboarding.
+`requireTwoFactorSetup` is optional (defaults to `false`). When `true`, the user must set up 2FA during onboarding. `roleId` is required.
 
 **Response** `201`
 ```json
@@ -391,7 +411,7 @@ Authenticated
 ## Onboarding Flow (Admin-Created Users)
 
 ```
-1. Admin calls POST /auth/create-user { email, requireTwoFactorSetup: true }
+1. Admin calls POST /users { firstName, lastName, email, roleId, requireTwoFactorSetup: true }
 2. User receives email with temporary password
 3. User logs in → gets full { accessToken, refreshToken }
 4. Frontend calls GET /auth/me → reads flags

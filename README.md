@@ -19,8 +19,34 @@ A NestJS starter kit with production-ready patterns — caching, event-driven ar
 
 ## Modules
 
+### Auth
+Registration, login, JWT token management (access + refresh), 2FA (TOTP), password reset/change, email change. See [frontend-integration-guide.md](./frontend-integration-guide.md) for full details.
+
+### Users
+Admin-managed user CRUD with role assignment and 2FA enforcement.
+
+- `POST /users` — create user (sends welcome email with temp password)
+- `GET /users` — paginated list (search by email, filter by role)
+- `GET /users/:id` — get one (sensitive fields stripped)
+- `PATCH /users/:id` — admin update (role, 2FA)
+- `DELETE /users/:id` — soft delete
+
+### Roles
+Role management with permission assignment.
+
+- `POST /roles` — create role
+- `GET /roles` — paginated list
+- `GET /roles/:id` — get one
+- `PATCH /roles/:id` — update (system roles can't be renamed)
+- `DELETE /roles/:id` — soft delete (system roles can't be deleted)
+
+### Permissions
+Read-only permission registry.
+
+- `GET /permissions` — list all available permissions
+
 ### Todos
-CRUD operations for todo items.
+CRUD operations for todo items, scoped to the authenticated user.
 
 - `POST /todos` — create a todo
 - `GET /todos` — paginated list
@@ -28,10 +54,18 @@ CRUD operations for todo items.
 - `PATCH /todos/:id` — update
 - `DELETE /todos/:id` — soft delete
 
-**Schema:** `title`, `description`, `status` (`pending` | `completed`), `isDeleted`, timestamps
+**Schema:** `title`, `description`, `status` (`pending` | `completed`), `deletedAt`, timestamps
+
+### Audits
+Immutable audit trail for all mutations. Logs are written asynchronously via BullMQ queue.
+
+- `GET /audits` — paginated list (filter by module, user, action, date range)
 
 ### Notifications
 Async job processor using BullMQ. Triggered by todo events (`todo.created`, `todo.completed`). Retries up to 3 times with exponential backoff on failure.
+
+### Mail
+Async email delivery via BullMQ. Handles welcome emails and password reset emails. Retries up to 3 times with exponential backoff.
 
 ### Health
 - `GET /health` — checks MongoDB and Redis connectivity
@@ -40,12 +74,14 @@ Async job processor using BullMQ. Triggered by todo events (`todo.created`, `tod
 
 - **Redis caching** — caches todo list and individual items with smart invalidation
 - **Event-driven** — `TodosListener` reacts to todo events and enqueues BullMQ jobs
-- **Soft deletes** — `BaseService` filters `isDeleted: true` at the base level
+- **Soft deletes** — `BaseService` filters `deletedAt: null` at the base level
 - **Pagination** — `PaginatedResult` with `page`, `limit` (max 100), `total`, `totalPages`
 - **Cron jobs** — `TodosJob` as a placeholder for scheduled tasks
 - **Global error handling** — `AllExceptionsFilter` catches all errors with a consistent response shape
 - **Event enums** — `TodoEvent` enum for all event names, no magic strings
 - **ObjectId validation** — `ParseObjectIdPipe` validates route params before hitting Mongoose
+- **Audit trail** — all mutations are logged asynchronously via BullMQ queue with user snapshots
+- **RBAC** — permission-based access control via `@RequirePermission()` decorator and `PermissionsGuard`
 
 ## Security
 
@@ -53,6 +89,8 @@ Async job processor using BullMQ. Triggered by todo events (`todo.created`, `tod
 - **Rate limiting** — 100 requests/minute per IP globally (`@nestjs/throttler`)
 - **CORS** — open in development, locked down in production
 - **Payload size limit** — 10MB max request body
+- **JWT auth** — access tokens (15m) + refresh tokens (7d) with version-based revocation
+- **Two-factor auth** — TOTP-based 2FA with QR code setup, optional per-role enforcement
 - **Env validation** — Joi schema validates all required env vars at startup
 
 > Per-route throttle override: `@Throttle({ default: { limit: N, ttl: 60_000 } })`
