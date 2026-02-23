@@ -161,6 +161,21 @@ export class AuthService {
     };
   }
 
+  async updateProfile(
+    userId: string,
+    dto: { firstName: string; lastName: string },
+  ) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+
+    await this.usersService.updateById(userId, {
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+    });
+
+    return { message: 'Profile updated successfully' };
+  }
+
   async setupTwoFactor(userId: string) {
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('User not found');
