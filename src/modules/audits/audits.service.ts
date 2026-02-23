@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -99,5 +99,11 @@ export class AuditsService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async findOne(id: string): Promise<AuditLogDocument> {
+    const doc = await this.auditLogModel.findById(id);
+    if (!doc) throw new NotFoundException('Audit log not found');
+    return doc;
   }
 }
