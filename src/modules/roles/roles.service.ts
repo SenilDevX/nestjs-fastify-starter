@@ -85,8 +85,8 @@ export class RolesService {
     const existing = await this.roleModel.findOne({ _id: id, deletedAt: null });
     if (!existing) throw new NotFoundException('Role not found');
 
-    if (existing.isSystem && dto.name !== undefined) {
-      throw new BadRequestException('Cannot rename a system role');
+    if (existing.isSystem) {
+      throw new BadRequestException('Cannot update a system role');
     }
 
     const updateData: Record<string, unknown> = {};
