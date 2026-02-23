@@ -154,6 +154,7 @@ export class AuthService {
             id: populatedRole._id.toString(),
             name: populatedRole.name,
             permissions: populatedRole.permissions,
+            requiresTwoFactor: populatedRole.requiresTwoFactor,
           }
         : null,
       createdAt: (user as unknown as { createdAt: Date }).createdAt,
