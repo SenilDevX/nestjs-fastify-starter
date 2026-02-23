@@ -59,7 +59,12 @@ export class UsersController {
   @Get()
   findAll(@Query() query: ListUsersQueryDto) {
     return this.usersService.findAllPaginated(
-      { search: query.search, roleId: query.roleId },
+      {
+        s: query.s,
+        roleId: query.roleId,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
+      },
       query.page,
       query.limit,
     );

@@ -3,6 +3,7 @@ import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { AuditsService } from './audits.service';
 import { ListAuditsQueryDto } from './dto/list-audits-query.dto';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Module, PermissionAction } from '../../common/enums';
 
 @ApiCookieAuth()
@@ -13,7 +14,14 @@ export class AuditsController {
 
   @RequirePermission(Module.Audits, PermissionAction.Read)
   @Get()
-  findAll(@Query() query: ListAuditsQueryDto) {
+  findAll(
+    @CurrentUser('permissions') permissions: string[],
+    @Query() query: ListAuditsQueryDto,
+  ) {
+    const allowedModules = Object.values(Module).filter((mod) =>
+      permissions.includes(`${mod}.read`),
+    );
+
     return this.auditsService.findAll(
       {
         module: query.module,
@@ -22,9 +30,13 @@ export class AuditsController {
         action: query.action,
         fromDate: query.fromDate,
         toDate: query.toDate,
+        s: query.s,
+        sortBy: query.sortBy,
+        sortOrder: query.sortOrder,
       },
       query.page,
       query.limit,
+      allowedModules,
     );
   }
 }

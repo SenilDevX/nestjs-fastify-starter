@@ -13,6 +13,8 @@ import { Role, RoleDocument } from '../roles/roles.schema';
 import { MailService } from '../mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PaginatedResult } from '../../common/types';
+import { SortOrder } from '../../common/enums';
+import { buildSort } from '../../common/utils/build-sort';
 
 const SALT_ROUNDS = 12;
 
@@ -143,19 +145,34 @@ export class UsersService {
   }
 
   async findAllPaginated(
-    options: { search?: string; roleId?: string },
+    options: {
+      s?: string;
+      roleId?: string;
+      sortBy?: string;
+      sortOrder?: SortOrder;
+    },
     page = 1,
     limit = 10,
   ): Promise<PaginatedResult<UserDocument>> {
     const filter: QueryFilter<UserDocument> = { deletedAt: null };
 
-    if (options.search) {
-      filter.email = { $regex: options.search, $options: 'i' };
+    if (options.s) {
+      const regex = { $regex: options.s, $options: 'i' };
+      filter.$or = [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+      ];
     }
     if (options.roleId) {
       filter.roleId = new Types.ObjectId(options.roleId);
     }
 
+    const sort = buildSort(options.sortBy, options.sortOrder, [
+      'firstName',
+      'email',
+      'createdAt',
+    ]);
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
@@ -163,7 +180,7 @@ export class UsersService {
         .find(filter)
         .select(SENSITIVE_FIELDS)
         .populate('roleId')
-        .sort({ createdAt: -1 })
+        .sort(sort)
         .skip(skip)
         .limit(limit),
       this.userModel.countDocuments(filter),

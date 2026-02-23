@@ -18,3 +18,8 @@ export enum AuditAction {
   Updated = 'updated',
   Deleted = 'deleted',
 }
+
+export enum SortOrder {
+  Asc = 'asc',
+  Desc = 'desc',
+}

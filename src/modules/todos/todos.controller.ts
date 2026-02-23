@@ -15,7 +15,7 @@ import { Types } from 'mongoose';
 import { TodosService } from './todos.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
 import { UpdateTodoDto } from './dto/update-todo.dto';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { ListTodosQueryDto } from './dto/list-todos-query.dto';
 import { ParseObjectIdPipe } from 'src/common/pipes/parse-object-id.pipe';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { RequirePermission } from 'src/common/decorators/require-permission.decorator';
@@ -57,13 +57,9 @@ export class TodosController {
   @Get()
   findAll(
     @CurrentUser('sub') userId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: ListTodosQueryDto,
   ) {
-    return this.todosService.findAll(
-      { userId: new Types.ObjectId(userId) },
-      query.page,
-      query.limit,
-    );
+    return this.todosService.findAllForUser(userId, query);
   }
 
   @RequirePermission(Module.Todos, PermissionAction.Read)

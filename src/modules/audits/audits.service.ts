@@ -4,9 +4,10 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { QueryFilter, Model, Types } from 'mongoose';
 import { AuditLog, AuditLogDocument } from './audits.schema';
-import { AuditAction, Module } from '../../common/enums';
+import { AuditAction, Module, SortOrder } from '../../common/enums';
 import { PaginatedResult } from '../../common/types';
 import { AuditEvent } from './audits.events';
+import { buildSort } from '../../common/utils/build-sort';
 import type { AuditJobData } from './audits.processor';
 
 @Injectable()
@@ -29,15 +30,28 @@ export class AuditsService {
       action?: AuditAction;
       fromDate?: string;
       toDate?: string;
+      s?: string;
+      sortBy?: string;
+      sortOrder?: SortOrder;
     },
     page = 1,
     limit = 10,
+    allowedModules?: string[],
   ): Promise<PaginatedResult<AuditLogDocument>> {
     const filter: QueryFilter<AuditLogDocument> = {};
 
-    if (options.module) {
+    if (allowedModules) {
+      if (options.module) {
+        filter.module = allowedModules.includes(options.module)
+          ? options.module
+          : { $in: [] };
+      } else {
+        filter.module = { $in: allowedModules };
+      }
+    } else if (options.module) {
       filter.module = options.module;
     }
+
     if (options.recordId) {
       filter.recordId = new Types.ObjectId(options.recordId);
     }
@@ -58,14 +72,23 @@ export class AuditsService {
       filter.createdAt = dateFilter;
     }
 
+    if (options.s) {
+      const regex = { $regex: options.s, $options: 'i' };
+      filter.$or = [
+        { userName: regex },
+        { userEmail: regex },
+        { userRole: regex },
+      ];
+    }
+
+    const sort = buildSort(options.sortBy, options.sortOrder, [
+      'userName',
+      'createdAt',
+    ]);
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      this.auditLogModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
+      this.auditLogModel.find(filter).sort(sort).skip(skip).limit(limit),
       this.auditLogModel.countDocuments(filter),
     ]);
 

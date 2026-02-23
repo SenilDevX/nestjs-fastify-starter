@@ -52,6 +52,8 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Insufficient permissions');
     }
 
+    request.user.permissions = role.permissions;
+
     return true;
   }
 }

@@ -56,6 +56,7 @@ export abstract class BaseService<T extends Document> {
     filter: QueryFilter<T> = {},
     page = 1,
     limit = 10,
+    sort: Record<string, 1 | -1> = { createdAt: -1 },
   ): Promise<PaginatedResult<T>> {
     const safePage = Math.max(1, page);
     const skip = (safePage - 1) * limit;
@@ -66,7 +67,7 @@ export abstract class BaseService<T extends Document> {
       const version =
         (await this.getFromCache<number>(`${prefix}_list:version`)) ?? 0;
       const filterHash = createHash('md5')
-        .update(JSON.stringify(filter))
+        .update(JSON.stringify({ filter, sort }))
         .digest('hex')
         .slice(0, 8);
       const cacheKey = `${prefix}_list:v${version}:f${filterHash}:p${safePage}:l${limit}`;
@@ -74,12 +75,18 @@ export abstract class BaseService<T extends Document> {
       const cached = await this.getFromCache<PaginatedResult<T>>(cacheKey);
       if (cached) return cached;
 
-      const result = await this.queryFindAll(baseFilter, skip, limit, safePage);
+      const result = await this.queryFindAll(
+        baseFilter,
+        skip,
+        limit,
+        safePage,
+        sort,
+      );
       await this.setCache(cacheKey, result);
       return result;
     }
 
-    return this.queryFindAll(baseFilter, skip, limit, safePage);
+    return this.queryFindAll(baseFilter, skip, limit, safePage, sort);
   }
 
   private async queryFindAll(
@@ -87,13 +94,10 @@ export abstract class BaseService<T extends Document> {
     skip: number,
     limit: number,
     page: number,
+    sort: Record<string, 1 | -1> = { createdAt: -1 },
   ): Promise<PaginatedResult<T>> {
     const [items, total] = await Promise.all([
-      this.model
-        .find(baseFilter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
+      this.model.find(baseFilter).sort(sort).skip(skip).limit(limit),
       this.model.countDocuments(baseFilter),
     ]);
 

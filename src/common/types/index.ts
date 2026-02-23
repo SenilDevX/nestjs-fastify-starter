@@ -10,4 +10,5 @@ export interface JwtPayload {
   sub: string;
   email: string;
   twoFactorVerified?: boolean;
+  permissions?: string[];
 }

@@ -14,7 +14,7 @@ import type { FastifyRequest } from 'fastify';
 import { RolesService } from './roles.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ListRolesQueryDto } from './dto/list-roles-query.dto';
 import { ParseObjectIdPipe } from '../../common/pipes/parse-object-id.pipe';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -56,8 +56,15 @@ export class RolesController {
 
   @RequirePermission(Module.Roles, PermissionAction.Read)
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
-    return this.rolesService.findAll(query.page, query.limit);
+  findAll(@Query() query: ListRolesQueryDto) {
+    return this.rolesService.findAllPaginated({
+      s: query.s,
+      isActive: query.isActive,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @RequirePermission(Module.Roles, PermissionAction.Read)
