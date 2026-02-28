@@ -18,7 +18,6 @@ import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from '../../common/types';
-import type { RoleDocument } from '../roles/roles.schema';
 
 const SALT_ROUNDS = 12;
 const ACCESS_TOKEN_TTL = '15m';
@@ -64,6 +63,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account deactivated');
+    }
+
     if (user.isTwoFactorEnabled) {
       const tempToken = await this.jwtService.signAsync(
         {
@@ -79,6 +82,10 @@ export class AuthService {
 
       return { requiresTwoFactor: true, tempToken };
     }
+
+    void this.usersService.updateById(user._id.toString(), {
+      lastLoginAt: new Date(),
+    });
 
     return this.generateTokenPair(user._id.toString(), user.email);
   }
@@ -139,7 +146,7 @@ export class AuthService {
     const user = await this.usersService.findByIdWithRole(userId);
     if (!user) throw new UnauthorizedException('User not found');
 
-    const populatedRole = user.roleId as unknown as RoleDocument | null;
+    const { role } = user;
 
     return {
       id: user._id.toString(),
@@ -149,12 +156,12 @@ export class AuthService {
       isTwoFactorEnabled: user.isTwoFactorEnabled,
       mustSetupTwoFactor: user.mustSetupTwoFactor,
       mustChangePassword: user.mustChangePassword,
-      role: populatedRole?._id
+      role: role?._id
         ? {
-            id: populatedRole._id.toString(),
-            name: populatedRole.name,
-            permissions: populatedRole.permissions,
-            requiresTwoFactor: populatedRole.requiresTwoFactor,
+            id: role._id.toString(),
+            name: role.name,
+            permissions: role.permissions,
+            requiresTwoFactor: role.requiresTwoFactor,
           }
         : null,
       createdAt: (user as unknown as { createdAt: Date }).createdAt,
@@ -232,6 +239,9 @@ export class AuthService {
   async authenticateTwoFactor(userId: string, token: string) {
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException('User not found');
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account deactivated');
+    }
     if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {
       throw new BadRequestException('Two-factor authentication is not enabled');
     }
@@ -245,6 +255,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid authentication code');
     }
 
+    void this.usersService.updateById(user._id.toString(), {
+      lastLoginAt: new Date(),
+    });
+
     return this.generateTokenPair(user._id.toString(), user.email);
   }
 
@@ -255,8 +269,7 @@ export class AuthService {
       throw new BadRequestException('Two-factor authentication is not enabled');
     }
 
-    const populatedRole = user.roleId as unknown as RoleDocument | null;
-    if (populatedRole?.requiresTwoFactor) {
+    if (user.role?.requiresTwoFactor) {
       throw new BadRequestException('Cannot disable 2FA — required by role');
     }
 

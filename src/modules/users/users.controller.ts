@@ -56,6 +56,12 @@ export class UsersController {
   }
 
   @RequirePermission(Module.Users, PermissionAction.Read)
+  @Get('stats')
+  getStats() {
+    return this.usersService.getStats();
+  }
+
+  @RequirePermission(Module.Users, PermissionAction.Read)
   @Get()
   findAll(@Query() query: ListUsersQueryDto) {
     return this.usersService.findAllPaginated(

@@ -9,7 +9,7 @@ const TEMP_TOKEN_MAX_AGE = 5 * 60; // 5 minutes
 const baseCookieOptions = {
   httpOnly: true,
   secure: IS_PRODUCTION,
-  sameSite: 'lax' as const,
+  sameSite: IS_PRODUCTION ? ('none' as const) : ('lax' as const),
 };
 
 export const setAccessTokenCookie = (reply: FastifyReply, token: string) => {

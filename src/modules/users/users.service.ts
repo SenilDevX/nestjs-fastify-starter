@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { QueryFilter, Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
-import { User, UserDocument } from './users.schema';
+import { User, UserDocument, UserWithRole } from './users.schema';
 import { Role, RoleDocument } from '../roles/roles.schema';
 import { MailService } from '../mail/mail.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -72,6 +72,15 @@ export class UsersService {
     const existing = await this.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already registered');
 
+    const role = await this.roleModel.findOne({
+      _id: dto.roleId,
+      deletedAt: null,
+    });
+    if (!role) throw new NotFoundException('Role not found');
+
+    const mustSetupTwoFactor =
+      role.requiresTwoFactor || !!dto.requireTwoFactorSetup;
+
     const tempPassword = this.generateTempPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, SALT_ROUNDS);
     const user = await this.create(
@@ -79,7 +88,7 @@ export class UsersService {
       hashedPassword,
       {
         mustChangePassword: true,
-        ...(dto.requireTwoFactorSetup && { mustSetupTwoFactor: true }),
+        ...(mustSetupTwoFactor && { mustSetupTwoFactor: true }),
         roleId: dto.roleId,
       },
     );
@@ -92,10 +101,10 @@ export class UsersService {
     };
   }
 
-  async findByIdWithRole(id: string): Promise<UserDocument | null> {
+  async findByIdWithRole(id: string): Promise<UserWithRole | null> {
     return this.userModel
       .findOne({ _id: id, deletedAt: null })
-      .populate('roleId');
+      .populate('role') as Promise<UserWithRole | null>;
   }
 
   async updateById(
@@ -111,13 +120,23 @@ export class UsersService {
 
   async adminUpdate(
     id: string,
-    dto: { roleId?: string; twoFactorEnabled?: boolean },
+    dto: { roleId?: string; twoFactorEnabled?: boolean; isActive?: boolean },
   ): Promise<UserDocument> {
     const user = await this.userModel.findOne({ _id: id, deletedAt: null });
     if (!user) throw new NotFoundException('User not found');
 
     if (dto.roleId !== undefined) {
+      const role = await this.roleModel.findOne({
+        _id: dto.roleId,
+        deletedAt: null,
+      });
+      if (!role) throw new NotFoundException('Role not found');
+
       user.roleId = new Types.ObjectId(dto.roleId);
+
+      if (role.requiresTwoFactor && !user.isTwoFactorEnabled) {
+        user.mustSetupTwoFactor = true;
+      }
     }
 
     if (dto.twoFactorEnabled === true) {
@@ -140,6 +159,10 @@ export class UsersService {
       user.mustSetupTwoFactor = false;
     }
 
+    if (dto.isActive !== undefined) {
+      user.isActive = dto.isActive;
+    }
+
     await user.save();
     return this.findByIdSafe(user._id.toString());
   }
@@ -153,7 +176,7 @@ export class UsersService {
     },
     page = 1,
     limit = 10,
-  ): Promise<PaginatedResult<UserDocument>> {
+  ): Promise<PaginatedResult<UserWithRole>> {
     const filter: QueryFilter<UserDocument> = { deletedAt: null };
 
     if (options.s) {
@@ -179,10 +202,10 @@ export class UsersService {
       this.userModel
         .find(filter)
         .select(SENSITIVE_FIELDS)
-        .populate('roleId')
+        .populate('role')
         .sort(sort)
         .skip(skip)
-        .limit(limit),
+        .limit(limit) as Promise<UserWithRole[]>,
       this.userModel.countDocuments(filter),
     ]);
 
@@ -195,11 +218,11 @@ export class UsersService {
     };
   }
 
-  async findByIdSafe(id: string): Promise<UserDocument> {
-    const user = await this.userModel
+  async findByIdSafe(id: string): Promise<UserWithRole> {
+    const user = (await this.userModel
       .findOne({ _id: id, deletedAt: null })
       .select(SENSITIVE_FIELDS)
-      .populate('roleId');
+      .populate('role')) as UserWithRole | null;
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
@@ -210,6 +233,59 @@ export class UsersService {
       { deletedAt: new Date() },
     );
     if (!user) throw new NotFoundException('User not found');
+  }
+
+  async getStats() {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const baseFilter = { deletedAt: null };
+
+    const [activeUsers, inactiveUsers, adminCount, staleLoginCount] =
+      await Promise.all([
+        this.userModel.countDocuments({ ...baseFilter, isActive: true }),
+        this.userModel.countDocuments({ ...baseFilter, isActive: false }),
+        // Admin count: users with a role where isSystem is true
+        this.userModel.aggregate([
+          { $match: baseFilter },
+          {
+            $lookup: {
+              from: 'roles',
+              localField: 'roleId',
+              foreignField: '_id',
+              as: 'role',
+            },
+          },
+          { $unwind: '$role' },
+          { $match: { 'role.isSystem': true, 'role.deletedAt': null } },
+          { $count: 'total' },
+        ]),
+        // Last login 30+ days ago (or never logged in)
+        this.userModel.countDocuments({
+          ...baseFilter,
+          isActive: true,
+          $or: [{ lastLoginAt: null }, { lastLoginAt: { $lt: thirtyDaysAgo } }],
+        }),
+      ]);
+
+    const adminTotal =
+      (adminCount[0] as { total: number } | undefined)?.total ?? 0;
+
+    return {
+      activeUsers: {
+        value: activeUsers,
+      },
+      inactiveUsers: {
+        value: inactiveUsers,
+      },
+      adminCount: {
+        value: adminTotal,
+      },
+      staleUsers: {
+        value: staleLoginCount,
+      },
+    };
   }
 
   private generateTempPassword(): string {

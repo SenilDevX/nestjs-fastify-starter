@@ -20,6 +20,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { AuditsModule } from './modules/audits/audits.module';
+import { CounterModule } from './modules/counters/counter.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { AuthGuard } from './common/guards/auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -92,7 +93,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
       }),
       inject: [ConfigService],
     }),
-    // TODO: Instead of ip based throttling (defaults to ip based), we'll have user based (once we have auth)
+    // TODO: Switch to user-based throttling instead of IP-based
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -109,6 +110,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     UsersModule,
     AuthModule,
     AuditsModule,
+    CounterModule,
     TodosModule,
     HealthModule,
   ],

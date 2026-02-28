@@ -14,4 +14,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   twoFactorEnabled?: boolean;
+
+  @ApiPropertyOptional({ description: 'Activate or deactivate user account' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

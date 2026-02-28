@@ -11,6 +11,7 @@ import { apiReference } from '@scalar/nestjs-api-reference';
 import helmet from '@fastify/helmet';
 import compress from '@fastify/compress';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 
 import { AppModule } from './app.module';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -32,6 +33,7 @@ async function bootstrap() {
   await app.register(cookie, {
     secret: configService.get<string>('COOKIE_SECRET'),
   });
+  await app.register(multipart);
 
   // Middlewares
   app.useLogger(app.get(Logger));
